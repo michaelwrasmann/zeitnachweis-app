@@ -5,6 +5,90 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Mitarbeiterverwaltung</title>
     <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .email-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .email-btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        .email-btn.first {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .email-btn.second {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .email-btn.final {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .email-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .email-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .email-btn small {
+            display: block;
+            font-weight: normal;
+            margin-top: 5px;
+            opacity: 0.9;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
     <nav>
@@ -53,9 +137,57 @@
                 </table>
             </div>
             
+            <div class="admin-section">
+                <h3>📊 Email-Statistiken</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalEmployees">-</div>
+                        <div>Gesamt Mitarbeiter</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="uploadedEmployees">-</div>
+                        <div>Uploads erhalten</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="pendingEmployees">-</div>
+                        <div>Noch ausstehend</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="remindersSent">-</div>
+                        <div>Erinnerungen versendet</div>
+                    </div>
+                </div>
+                <button onclick="loadEmailStats()" class="btn">🔄 Aktualisieren</button>
+            </div>
+            
+            <div class="admin-section">
+                <h3>📧 Erinnerungs-Emails</h3>
+                <p>Teste die verschiedenen Erinnerungs-Email-Templates:</p>
+                
+                <div class="email-buttons">
+                    <button class="btn email-btn first" onclick="sendTestEmail('first')" id="firstBtn">
+                        📋 Erste Erinnerung<br>
+                        <small>1. Werktag - "Upload möglich!"</small>
+                    </button>
+                    <button class="btn email-btn second" onclick="sendTestEmail('second')" id="secondBtn">
+                        ⚠️ Zweite Erinnerung<br>
+                        <small>3. Werktag - "Noch Zeit!"</small>
+                    </button>
+                    <button class="btn email-btn final" onclick="sendTestEmail('final')" id="finalBtn">
+                        🚨 Finale Erinnerung<br>
+                        <small>5. Werktag - "Letzte Chance!"</small>
+                    </button>
+                </div>
+                
+                <div class="info-box">
+                    <strong>Hinweis:</strong> 
+                    Die Test-Emails werden nur an Mitarbeiter gesendet, die noch keinen Zeitnachweis für den aktuellen Monat hochgeladen haben.
+                </div>
+            </div>
+            
             <div class="admin-actions">
                 <button class="btn btn-secondary" onclick="sendReminders()">
-                    📧 Erinnerungen senden
+                    📧 Standard-Erinnerung senden
                 </button>
             </div>
         </div>

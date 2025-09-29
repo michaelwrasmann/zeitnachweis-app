@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize admin page
     loadEmployeeTable();
     setupAddEmployeeForm();
+    loadEmailStats();
 });
 
 /**
@@ -483,5 +484,80 @@ document.addEventListener('DOMContentLoaded', function() {
 // Auto-refresh employee table every 2 minutes
 setInterval(loadEmployeeTable, 120000);
 
-// Global function to be called from HTML onclick
+/**
+ * Load email statistics
+ */
+async function loadEmailStats() {
+    try {
+        const response = await fetch('/api/admin/email-stats');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const stats = await response.json();
+        
+        // Update statistics display
+        const totalElement = document.getElementById('totalEmployees');
+        const uploadedElement = document.getElementById('uploadedEmployees');
+        const pendingElement = document.getElementById('pendingEmployees');
+        const remindersElement = document.getElementById('remindersSent');
+        
+        if (totalElement) totalElement.textContent = stats.total_employees;
+        if (uploadedElement) uploadedElement.textContent = stats.uploaded_employees;
+        if (pendingElement) pendingElement.textContent = stats.pending_employees;
+        if (remindersElement) remindersElement.textContent = stats.reminders_sent;
+        
+    } catch (error) {
+        console.error('Fehler beim Laden der Email-Statistiken:', error);
+        // Don't show error to user for stats, just log it
+    }
+}
+
+/**
+ * Send test emails based on reminder type
+ */
+async function sendTestEmail(reminderType) {
+    const button = document.getElementById(reminderType + 'Btn');
+    if (!button) return;
+    
+    const originalText = button.innerHTML;
+    
+    try {
+        // Show loading state
+        button.disabled = true;
+        button.innerHTML = '⏳ Wird gesendet...';
+        
+        const response = await fetch('/api/admin/test-emails', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reminderType })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showMessage(`✅ ${result.message}`, 'success');
+            
+            // Reload stats to show updated reminder count
+            setTimeout(loadEmailStats, 1000);
+        } else {
+            throw new Error(result.error || 'Unbekannter Fehler');
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Senden der Test-Email:', error);
+        showMessage('Fehler beim Senden: ' + error.message, 'error');
+    } finally {
+        // Reset button
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+}
+
+// Global functions to be called from HTML onclick
 window.sendReminders = sendReminders;
+window.loadEmailStats = loadEmailStats;
+window.sendTestEmail = sendTestEmail;
