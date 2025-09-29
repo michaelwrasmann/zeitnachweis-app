@@ -32,17 +32,10 @@ services:
   db-healthcheck:
     image: mysql:8.0
     command: >
-      sh -c "
-        echo 'Teste Verbindung zur externen MySQL-Datenbank...' &&
-        mysqladmin ping 
-          -h 129.247.232.14 
-          -P 3306 
-          -u advaiv 
-          -p'${DB_PASSWORD}' 
-          --connect-timeout=10 &&
-        echo 'Externe MySQL-Datenbank ist erreichbar!' &&
-        sleep infinity
-      "
+      sh -c "echo 'Teste Verbindung zur externen MySQL-Datenbank...' &&
+      mysqladmin ping -h 129.247.232.14 -P 3306 -u advaiv -p'${DB_PASSWORD}' --connect-timeout=10 &&
+      echo 'Externe MySQL-Datenbank ist erreichbar!' &&
+      sleep infinity"
     networks:
       - zeitnachweis-network
     restart: "no"
