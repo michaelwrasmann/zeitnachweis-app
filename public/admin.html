@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Mitarbeiterverwaltung</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <h1>📊 Zeitnachweis-System</h1>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/upload.html">Upload</a>
+                <a href="/admin.html" class="active">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <div class="container">
+            <h2>Mitarbeiterverwaltung</h2>
+            
+            <div id="adminStatus" class="alert-container"></div>
+            
+            <div class="admin-section">
+                <h3>Neuen Mitarbeiter hinzufügen</h3>
+                <form id="addEmployeeForm" class="add-form">
+                    <div class="form-row">
+                        <input type="text" id="employeeName" placeholder="Name" required>
+                        <input type="email" id="employeeEmail" placeholder="E-Mail" required>
+                        <button type="submit" class="btn btn-primary">➕ Hinzufügen</button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="admin-section">
+                <h3>Mitarbeiterliste</h3>
+                <table class="employee-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>E-Mail</th>
+                            <th>Status</th>
+                            <th>Hinzugefügt am</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeeTableBody">
+                        <!-- Wird dynamisch gefüllt -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="admin-actions">
+                <button class="btn btn-secondary" onclick="sendReminders()">
+                    📧 Erinnerungen senden
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/admin.js"></script>
+</body>
+</html>

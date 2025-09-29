@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zeitnachweis Dashboard</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <h1>📊 Zeitnachweis-System</h1>
+            <div class="nav-links">
+                <a href="/" class="active">Dashboard</a>
+                <a href="/upload.html">Upload</a>
+                <a href="/admin.html">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <div class="container">
+            <div class="header">
+                <h2>Mitarbeiter-Status für <span id="currentMonth"></span></h2>
+                <div class="legend">
+                    <span class="legend-item">
+                        <span class="status-indicator uploaded"></span> Hochgeladen
+                    </span>
+                    <span class="legend-item">
+                        <span class="status-indicator pending"></span> Ausstehend
+                    </span>
+                </div>
+            </div>
+
+            <div class="stats-container">
+                <div class="stat-card">
+                    <h3>Gesamt</h3>
+                    <div class="stat-number" id="totalEmployees">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Hochgeladen</h3>
+                    <div class="stat-number uploaded-text" id="uploadedCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Ausstehend</h3>
+                    <div class="stat-number pending-text" id="pendingCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Fortschritt</h3>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressBar"></div>
+                    </div>
+                    <div class="stat-percent" id="progressPercent">0%</div>
+                </div>
+            </div>
+
+            <div class="employee-grid" id="employeeGrid">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>
