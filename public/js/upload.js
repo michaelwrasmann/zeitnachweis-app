@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize upload page
     loadEmployeeList();
     setupUploadForm();
-    checkUploadPeriod();
+    // Upload ist jederzeit möglich - keine Zeitraum-Prüfung nötig
 });
 
 /**
@@ -138,11 +138,7 @@ async function handleUpload(event) {
         return;
     }
     
-    // Check upload period before proceeding
-    const canUpload = await checkUploadPeriod();
-    if (!canUpload) {
-        return;
-    }
+    // Upload ist jederzeit möglich
     
     // Show loading state
     const originalButtonText = submitButton.textContent;
@@ -190,33 +186,8 @@ async function handleUpload(event) {
 }
 
 /**
- * Check if upload period is currently open
+ * Upload ist jederzeit möglich - keine Zeitraum-Prüfung mehr nötig
  */
-async function checkUploadPeriod() {
-    try {
-        // Test upload period by attempting a test request
-        const response = await fetch('/api/upload', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ test: true })
-        });
-        
-        if (response.status === 403) {
-            const result = await response.json();
-            showMessage(result.error || 'Upload-Zeitraum ist geschlossen.', 'warning');
-            disableUploadForm();
-            return false;
-        }
-        
-        return true;
-        
-    } catch (error) {
-        console.error('Fehler beim Prüfen des Upload-Zeitraums:', error);
-        return true; // Allow upload attempt if check fails
-    }
-}
 
 /**
  * Disable upload form when upload period is closed
@@ -361,10 +332,7 @@ function updateUploadPeriodInfo() {
     }
 }
 
-// Initialize upload period info on load
-document.addEventListener('DOMContentLoaded', function() {
-    updateUploadPeriodInfo();
-});
+// Upload ist jederzeit möglich
 
 // Add drag and drop functionality
 function setupDragAndDrop() {

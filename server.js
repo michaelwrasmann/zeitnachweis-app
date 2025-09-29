@@ -209,9 +209,14 @@ app.delete('/api/employees/:id', async (req, res) => {
   }
 });
 
-// Datei-Upload
+// Datei-Upload 
 app.post('/api/upload', upload.single('zeitnachweis'), async (req, res) => {
   try {
+    // Test-Anfrage für Upload-Zeitraum-Prüfung (nicht mehr benötigt)
+    if (req.body.test === true) {
+      return res.json({ message: 'Upload jederzeit möglich' });
+    }
+    
     if (!req.file) {
       return res.status(400).json({ error: 'Keine Datei hochgeladen' });
     }
@@ -222,13 +227,6 @@ app.post('/api/upload', upload.single('zeitnachweis'), async (req, res) => {
     
     if (!employeeId) {
       return res.status(400).json({ error: 'Mitarbeiter-ID fehlt' });
-    }
-    
-    // Check if upload period is open (first 5 working days)
-    if (!isUploadPeriodOpen()) {
-      return res.status(403).json({ 
-        error: 'Upload nur in den ersten 5 Werktagen des Monats möglich' 
-      });
     }
     
     // Update or insert upload record
@@ -276,8 +274,9 @@ app.post('/api/admin/test-emails', async (req, res) => {
 // Get email statistics
 app.get('/api/admin/email-stats', async (req, res) => {
   try {
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
+    const now = new Date();
+    const lastMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+    const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
     
     const [totalEmployees] = await pool.execute(
       'SELECT COUNT(*) as count FROM zeitnachweis_employees WHERE active = true'
@@ -287,20 +286,21 @@ app.get('/api/admin/email-stats', async (req, res) => {
       SELECT COUNT(*) as count FROM zeitnachweis_employees e
       JOIN zeitnachweis_uploads u ON e.id = u.employee_id
       WHERE e.active = true AND u.month = ? AND u.year = ?
-    `, [currentMonth, currentYear]);
+    `, [lastMonth, lastMonthYear]);
     
     const [remindersSent] = await pool.execute(`
       SELECT COUNT(*) as count FROM zeitnachweis_reminders
       WHERE month = ? AND year = ?
-    `, [currentMonth, currentYear]);
+    `, [lastMonth, lastMonthYear]);
     
     res.json({
       total_employees: totalEmployees[0].count,
       uploaded_employees: uploadedEmployees[0].count,
       pending_employees: totalEmployees[0].count - uploadedEmployees[0].count,
       reminders_sent: remindersSent[0].count,
-      month: currentMonth,
-      year: currentYear
+      month: lastMonth,
+      year: lastMonthYear,
+      status_for: 'previous_month' // Indikator dass es um den vorherigen Monat geht
     });
   } catch (error) {
     console.error('❌ Fehler beim Abrufen der Email-Statistiken:', error);
@@ -342,14 +342,17 @@ function isUploadPeriodOpen() {
 // Send reminder emails with different templates
 async function sendReminderEmails(reminderType = 'first') {
   try {
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
+    const now = new Date();
+    // Prüfe den vorherigen Monat
+    const lastMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+    const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    
     const monthNames = [
       'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
       'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
     ];
     
-    // Get employees who haven't uploaded yet
+    // Get employees who haven't uploaded for LAST month
     const [employees] = await pool.execute(`
       SELECT e.id, e.name, e.email
       FROM zeitnachweis_employees e
@@ -358,14 +361,14 @@ async function sendReminderEmails(reminderType = 'first') {
         u.month = ? AND 
         u.year = ?
       WHERE e.active = true AND u.id IS NULL
-    `, [currentMonth, currentYear]);
+    `, [lastMonth, lastMonthYear]);
     
     // Get current working day info
     const today = new Date();
     const workingDay = getWorkingDayNumber(today);
     
     for (const employee of employees) {
-      const emailData = getEmailTemplate(reminderType, employee.name, currentMonth, currentYear, monthNames, workingDay);
+      const emailData = getEmailTemplate(reminderType, employee.name, lastMonth, lastMonthYear, monthNames, workingDay);
       
       await transporter.sendMail({
         from: process.env.EMAIL_FROM,
@@ -378,7 +381,7 @@ async function sendReminderEmails(reminderType = 'first') {
       await pool.execute(`
         INSERT INTO zeitnachweis_reminders (employee_id, month, year)
         VALUES (?, ?, ?)
-      `, [employee.id, currentMonth, currentYear]);
+      `, [employee.id, lastMonth, lastMonthYear]);
     }
     
     console.log(`📧 ${employees.length} ${reminderType} Erinnerungs-Emails versendet`);
@@ -395,17 +398,17 @@ function getEmailTemplate(type, employeeName, month, year, monthNames, workingDa
   switch (type) {
     case 'first':
       return {
-        subject: `📋 Zeitnachweis für ${monthName} ${year} - Upload möglich!`,
+        subject: `📋 Fehlender Zeitnachweis für ${monthName} ${year}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2c3e50;">🎯 Zeitnachweis Upload gestartet!</h2>
+            <h2 style="color: #e67e22;">📋 Zeitnachweis fehlt noch!</h2>
             <p>Hallo <strong>${employeeName}</strong>,</p>
-            <p>Der Upload-Zeitraum für den <strong>${monthName} ${year}</strong> hat begonnen!</p>
-            <div style="background-color: #e8f5e8; padding: 15px; border-left: 4px solid #27ae60; margin: 20px 0;">
-              <p>✅ <strong>Sie haben ab heute 5 Werktage Zeit</strong> für den Upload Ihres Zeitnachweises.</p>
-              <p>📅 Heute ist der <strong>${workingDay}. Werktag</strong> des Monats.</p>
+            <p>Uns fehlt noch Ihr Zeitnachweis für den <strong>${monthName} ${year}</strong>.</p>
+            <div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
+              <p>📅 <strong>Zeitnachweis für ${monthName} ${year} fehlt</strong></p>
+              <p>⏰ <strong>Bitte laden Sie diesen so schnell wie möglich hoch.</strong></p>
             </div>
-            <p><a href="${baseUrl}/upload" style="background-color: #3498db; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block;">🔗 Jetzt hochladen</a></p>
+            <p><a href="${baseUrl}/upload" style="background-color: #e67e22; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block;">🔗 Jetzt hochladen</a></p>
             <p>Mit freundlichen Grüßen,<br>Ihr Zeitnachweis-Team</p>
           </div>
         `
@@ -413,15 +416,15 @@ function getEmailTemplate(type, employeeName, month, year, monthNames, workingDa
     
     case 'second':
       return {
-        subject: `⚠️ Erinnerung: Zeitnachweis für ${monthName} ${year} noch offen`,
+        subject: `⚠️ 2. Erinnerung: Zeitnachweis für ${monthName} ${year} fehlt immer noch`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #e67e22;">⏰ Noch Zeit für Ihren Zeitnachweis!</h2>
+            <h2 style="color: #e67e22;">⚠️ Zweite Erinnerung - Zeitnachweis fehlt!</h2>
             <p>Hallo <strong>${employeeName}</strong>,</p>
-            <p>Dies ist eine freundliche Erinnerung für Ihren Zeitnachweis im <strong>${monthName} ${year}</strong>.</p>
+            <p>Dies ist eine zweite Erinnerung - wir haben noch immer keinen Zeitnachweis für den <strong>${monthName} ${year}</strong> erhalten.</p>
             <div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
-              <p>📅 Heute ist der <strong>${workingDay}. Werktag</strong> des Monats.</p>
-              <p>⏳ <strong>Sie haben noch wenige Tage Zeit</strong> für den Upload.</p>
+              <p>📅 <strong>Zeitnachweis für ${monthName} ${year} fehlt weiterhin</strong></p>
+              <p>⏳ <strong>Bitte laden Sie diesen umgehend hoch</strong></p>
             </div>
             <p><a href="${baseUrl}/upload" style="background-color: #e67e22; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block;">📤 Jetzt hochladen</a></p>
             <p>Mit freundlichen Grüßen,<br>Ihr Zeitnachweis-Team</p>
@@ -431,15 +434,15 @@ function getEmailTemplate(type, employeeName, month, year, monthNames, workingDa
     
     case 'final':
       return {
-        subject: `🚨 LETZTE CHANCE: Zeitnachweis für ${monthName} ${year}`,
+        subject: `🚨 DRINGEND: Zeitnachweis für ${monthName} ${year} fehlt!`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #e74c3c;">🚨 Letzter Upload-Tag!</h2>
+            <h2 style="color: #e74c3c;">🚨 DRINGEND - Zeitnachweis fehlt!</h2>
             <p>Hallo <strong>${employeeName}</strong>,</p>
-            <p><strong>WICHTIG:</strong> Heute ist der letzte Tag für den Upload Ihres Zeitnachweises für den <strong>${monthName} ${year}</strong>!</p>
+            <p><strong>DRINGEND:</strong> Ihr Zeitnachweis für den <strong>${monthName} ${year}</strong> fehlt weiterhin!</p>
             <div style="background-color: #f8d7da; padding: 15px; border-left: 4px solid #dc3545; margin: 20px 0;">
-              <p>🗓️ <strong>Heute ist der 5. und letzte Werktag</strong> für den Upload.</p>
-              <p>⏰ <strong>Upload-Zeitraum endet heute um 24:00 Uhr!</strong></p>
+              <p>📋 <strong>Zeitnachweis für ${monthName} ${year} ist überfällig</strong></p>
+              <p>⚠️ <strong>Bitte laden Sie diesen SOFORT hoch!</strong></p>
             </div>
             <p><a href="${baseUrl}/upload" style="background-color: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">🚀 SOFORT HOCHLADEN</a></p>
             <p style="color: #666; font-size: 14px;">Bei Problemen wenden Sie sich bitte umgehend an das Admin-Team.</p>
@@ -473,32 +476,23 @@ function getWorkingDayNumber(date) {
   return workingDaysCount;
 }
 
-// Schedule reminder emails 
-// 1st working day at 9 AM - First reminder
-cron.schedule('0 9 * * 1-5', () => {
-  const today = new Date();
-  if (isFirstWorkingDay(today)) {
-    console.log('📧 Sende erste Erinnerungsmail (1. Werktag)');
-    sendReminderEmails('first');
-  }
+// Schedule reminder emails für fehlende Zeitnachweise
+// 5. Tag des Monats um 9 AM - Erste Erinnerung 
+cron.schedule('0 9 5 * *', () => {
+  console.log('📧 Sende erste Erinnerungsmail für fehlende Zeitnachweise (5. des Monats)');
+  sendReminderEmails('first');
 });
 
-// 3rd working day at 9 AM - Second reminder  
-cron.schedule('0 9 * * 1-5', () => {
-  const today = new Date();
-  if (isThirdWorkingDay(today)) {
-    console.log('📧 Sende zweite Erinnerungsmail (3. Werktag)');
-    sendReminderEmails('second');
-  }
+// 10. Tag des Monats um 9 AM - Zweite Erinnerung
+cron.schedule('0 9 10 * *', () => {
+  console.log('📧 Sende zweite Erinnerungsmail für fehlende Zeitnachweise (10. des Monats)');
+  sendReminderEmails('second');
 });
 
-// 5th working day at 9 AM - Final reminder
-cron.schedule('0 9 * * 1-5', () => {
-  const today = new Date();
-  if (isFifthWorkingDay(today)) {
-    console.log('📧 Sende finale Erinnerungsmail (5. Werktag)');
-    sendReminderEmails('final');
-  }
+// 15. Tag des Monats um 9 AM - Finale Erinnerung
+cron.schedule('0 9 15 * *', () => {
+  console.log('📧 Sende finale Erinnerungsmail für fehlende Zeitnachweise (15. des Monats)');
+  sendReminderEmails('final');
 });
 
 function isFirstWorkingDay(date) {

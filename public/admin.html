@@ -162,26 +162,26 @@
             
             <div class="admin-section">
                 <h3>📧 Erinnerungs-Emails</h3>
-                <p>Teste die verschiedenen Erinnerungs-Email-Templates:</p>
+                <p>Teste die verschiedenen Erinnerungs-Email-Templates für fehlende Zeitnachweise:</p>
                 
                 <div class="email-buttons">
                     <button class="btn email-btn first" onclick="sendTestEmail('first')" id="firstBtn">
                         📋 Erste Erinnerung<br>
-                        <small>1. Werktag - "Upload möglich!"</small>
+                        <small>5. des Monats - "Zeitnachweis fehlt"</small>
                     </button>
                     <button class="btn email-btn second" onclick="sendTestEmail('second')" id="secondBtn">
                         ⚠️ Zweite Erinnerung<br>
-                        <small>3. Werktag - "Noch Zeit!"</small>
+                        <small>10. des Monats - "Fehlt immer noch"</small>
                     </button>
                     <button class="btn email-btn final" onclick="sendTestEmail('final')" id="finalBtn">
                         🚨 Finale Erinnerung<br>
-                        <small>5. Werktag - "Letzte Chance!"</small>
+                        <small>15. des Monats - "DRINGEND!"</small>
                     </button>
                 </div>
                 
                 <div class="info-box">
                     <strong>Hinweis:</strong> 
-                    Die Test-Emails werden nur an Mitarbeiter gesendet, die noch keinen Zeitnachweis für den aktuellen Monat hochgeladen haben.
+                    Die Test-Emails werden nur an Mitarbeiter gesendet, die noch keinen Zeitnachweis für den <strong>vorherigen Monat</strong> hochgeladen haben. Upload ist jederzeit möglich.
                 </div>
             </div>
             

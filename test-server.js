@@ -11,7 +11,7 @@ const PORT = 3002;
 app.use(express.json());
 app.use(express.static('public'));
 
-// Mock-Daten für Tests
+// Mock-Daten für Tests - zeigt fehlende Zeitnachweise für vorherigen Monat
 const mockEmployees = [
     { id: 1, name: 'Max Mustermann', email: 'max.mustermann@example.com', active: true, uploaded: false },
     { id: 2, name: 'Anna Schmidt', email: 'anna.schmidt@example.com', active: true, uploaded: true },
@@ -125,17 +125,17 @@ function getEmailTemplate(type, employeeName, month, year, monthNames, workingDa
     switch (type) {
         case 'first':
             return {
-                subject: `📋 Zeitnachweis für ${monthName} ${year} - Upload möglich!`,
+                subject: `📋 Fehlender Zeitnachweis für ${monthName} ${year}`,
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #2c3e50;">🎯 Zeitnachweis Upload gestartet!</h2>
+                        <h2 style="color: #e67e22;">📋 Zeitnachweis fehlt noch!</h2>
                         <p>Hallo <strong>${employeeName}</strong>,</p>
-                        <p>Der Upload-Zeitraum für den <strong>${monthName} ${year}</strong> hat begonnen!</p>
-                        <div style="background-color: #e8f5e8; padding: 15px; border-left: 4px solid #27ae60; margin: 20px 0;">
-                            <p>✅ <strong>Sie haben ab heute 5 Werktage Zeit</strong> für den Upload Ihres Zeitnachweises.</p>
-                            <p>📅 Heute ist der <strong>${workingDay}. Werktag</strong> des Monats.</p>
+                        <p>Uns fehlt noch Ihr Zeitnachweis für den <strong>${monthName} ${year}</strong>.</p>
+                        <div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
+                            <p>📅 <strong>Zeitnachweis für ${monthName} ${year} fehlt</strong></p>
+                            <p>⏰ <strong>Bitte laden Sie diesen so schnell wie möglich hoch.</strong></p>
                         </div>
-                        <p><a href="${baseUrl}/upload" style="background-color: #3498db; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block;">🔗 Jetzt hochladen</a></p>
+                        <p><a href="${baseUrl}/upload" style="background-color: #e67e22; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block;">🔗 Jetzt hochladen</a></p>
                         <p>Mit freundlichen Grüßen,<br>Ihr Zeitnachweis-Team</p>
                     </div>
                 `
