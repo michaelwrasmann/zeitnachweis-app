@@ -29,41 +29,8 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// Email Transporter - exakt wie WeaselParts
-let transporter = null;
-
-// SMTP-Konfiguration wie WeaselParts
-if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-  const smtpConfig = {
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    },
-    tls: {
-      rejectUnauthorized: false
-    }
-  };
-  
-  transporter = nodemailer.createTransport(smtpConfig);
-  console.log(`📧 SMTP configured: ${smtpConfig.host}:${smtpConfig.port}`);
-} else {
-  console.log('⚠️ E-Mail-Konfiguration unvollständig (SMTP_HOST, SMTP_USER, SMTP_PASS benötigt)');
-}
-
-// Verify SMTP connection on startup - nur wenn transporter existiert
-if (transporter) {
-  transporter.verify((error, success) => {
-    if (error) {
-      console.log('❌ SMTP-Verbindung fehlgeschlagen:', error.message);
-      console.log('📧 Email-Versand wird nicht funktionieren!');
-    } else {
-      console.log('✅ SMTP-Server bereit für Email-Versand');
-    }
-  });
-}
+// SMTP-Konfiguration wird in Email-Funktionen erstellt (wie WeaselParts)
+console.log('📧 Email-System: SMTP wird bei Bedarf konfiguriert');
 
 // Multer Setup für Datei-Uploads
 const storage = multer.diskStorage({
@@ -275,19 +242,36 @@ app.post('/api/upload', upload.single('zeitnachweis'), async (req, res) => {
   }
 });
 
-// Test endpoint for SMTP connection
+// Test endpoint for SMTP connection - exakt wie WeaselParts
 app.post('/api/admin/test-smtp', async (req, res) => {
   try {
     console.log('🧪 Teste SMTP-Verbindung...');
     
-    if (!transporter) {
+    // SMTP-Konfiguration wie WeaselParts
+    const smtpConfig = {
+      host: process.env.SMTP_HOST || 'smtp.dlr.de',
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    };
+
+    if (!smtpConfig.auth.pass) {
       return res.status(500).json({ 
-        error: 'SMTP-Transporter nicht konfiguriert',
-        details: 'SMTP_HOST, SMTP_USER und SMTP_PASS müssen gesetzt sein',
+        error: 'SMTP-Konfiguration unvollständig',
+        details: 'SMTP_PASS fehlt',
         smtp_host: process.env.SMTP_HOST || 'nicht gesetzt',
         smtp_port: process.env.SMTP_PORT || 'nicht gesetzt'
       });
     }
+    
+    // Transporter lokal erstellen
+    const transporter = nodemailer.createTransport(smtpConfig);
     
     // Test SMTP connection
     await transporter.verify();
@@ -295,9 +279,9 @@ app.post('/api/admin/test-smtp', async (req, res) => {
     console.log('✅ SMTP-Verbindung erfolgreich');
     res.json({ 
       message: 'SMTP-Verbindung erfolgreich',
-      smtp_host: process.env.SMTP_HOST,
-      smtp_port: process.env.SMTP_PORT,
-      smtp_user: process.env.SMTP_USER ? '✓ konfiguriert' : '✗ nicht konfiguriert',
+      smtp_host: smtpConfig.host,
+      smtp_port: smtpConfig.port,
+      smtp_user: smtpConfig.auth.user ? '✓ konfiguriert' : '✗ nicht konfiguriert',
       email_from: process.env.EMAIL_FROM
     });
   } catch (error) {
@@ -404,10 +388,28 @@ function isUploadPeriodOpen() {
 // Send reminder emails with different templates
 async function sendReminderEmails(reminderType = 'first') {
   try {
-    if (!transporter) {
-      console.error('❌ SMTP-Transporter nicht konfiguriert - Emails können nicht versendet werden');
-      throw new Error('SMTP-Transporter nicht konfiguriert');
+    console.log(`📧 Sende ${reminderType} Erinnerungs-Emails...`);
+    
+    // SMTP-Konfiguration wie WeaselParts
+    const smtpConfig = {
+      host: process.env.SMTP_HOST || 'smtp.dlr.de',
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    };
+
+    if (!smtpConfig.auth.pass) {
+      console.log('⚠️ SMTP-Konfiguration fehlt - Erinnerungsmail übersprungen');
+      return;
     }
+    
+    const transporter = nodemailer.createTransport(smtpConfig);
     const now = new Date();
     // Prüfe den vorherigen Monat
     const lastMonth = now.getMonth() === 0 ? 12 : now.getMonth();
@@ -440,8 +442,7 @@ async function sendReminderEmails(reminderType = 'first') {
         console.log(`📧 Sende ${reminderType} Email an ${employee.name} (${employee.email})`);
         
         // From-Email wie WeaselParts behandeln
-        const fromEmail = process.env.SMTP_USER && process.env.SMTP_USER.includes('f_weasel') ? 
-          'weasel@dlr.de' : process.env.EMAIL_FROM || process.env.SMTP_USER;
+        const fromEmail = smtpConfig.auth.user.includes('f_weasel') ? 'weasel@dlr.de' : smtpConfig.auth.user;
         
         const result = await transporter.sendMail({
           from: `"Zeitnachweis-System" <${fromEmail}>`,
