@@ -34,8 +34,22 @@ const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: process.env.SMTP_PORT,
   secure: false,
+  auth: process.env.SMTP_USER && process.env.SMTP_PASS ? {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  } : undefined,
   tls: {
     rejectUnauthorized: false
+  }
+});
+
+// Verify SMTP connection on startup
+transporter.verify((error, success) => {
+  if (error) {
+    console.log('❌ SMTP-Verbindung fehlgeschlagen:', error.message);
+    console.log('📧 Email-Versand wird nicht funktionieren!');
+  } else {
+    console.log('✅ SMTP-Server bereit für Email-Versand');
   }
 });
 
@@ -249,6 +263,33 @@ app.post('/api/upload', upload.single('zeitnachweis'), async (req, res) => {
   }
 });
 
+// Test endpoint for SMTP connection
+app.post('/api/admin/test-smtp', async (req, res) => {
+  try {
+    console.log('🧪 Teste SMTP-Verbindung...');
+    
+    // Test SMTP connection
+    await transporter.verify();
+    
+    console.log('✅ SMTP-Verbindung erfolgreich');
+    res.json({ 
+      message: 'SMTP-Verbindung erfolgreich',
+      smtp_host: process.env.SMTP_HOST,
+      smtp_port: process.env.SMTP_PORT,
+      smtp_user: process.env.SMTP_USER ? '✓ konfiguriert' : '✗ nicht konfiguriert',
+      email_from: process.env.EMAIL_FROM
+    });
+  } catch (error) {
+    console.error('❌ SMTP-Verbindung fehlgeschlagen:', error);
+    res.status(500).json({ 
+      error: 'SMTP-Verbindung fehlgeschlagen',
+      details: error.message,
+      smtp_host: process.env.SMTP_HOST,
+      smtp_port: process.env.SMTP_PORT
+    });
+  }
+});
+
 // Test endpoint for manual email sending (only for development)
 app.post('/api/admin/test-emails', async (req, res) => {
   try {
@@ -267,7 +308,7 @@ app.post('/api/admin/test-emails', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Fehler beim manuellen Email-Test:', error);
-    res.status(500).json({ error: 'Fehler beim Versenden der Test-Emails' });
+    res.status(500).json({ error: 'Fehler beim Versenden der Test-Emails: ' + error.message });
   }
 });
 
@@ -368,20 +409,30 @@ async function sendReminderEmails(reminderType = 'first') {
     const workingDay = getWorkingDayNumber(today);
     
     for (const employee of employees) {
-      const emailData = getEmailTemplate(reminderType, employee.name, lastMonth, lastMonthYear, monthNames, workingDay);
-      
-      await transporter.sendMail({
-        from: process.env.EMAIL_FROM,
-        to: employee.email,
-        subject: emailData.subject,
-        html: emailData.html
-      });
-      
-      // Log reminder with type
-      await pool.execute(`
-        INSERT INTO zeitnachweis_reminders (employee_id, month, year)
-        VALUES (?, ?, ?)
-      `, [employee.id, lastMonth, lastMonthYear]);
+      try {
+        const emailData = getEmailTemplate(reminderType, employee.name, lastMonth, lastMonthYear, monthNames, workingDay);
+        
+        console.log(`📧 Sende ${reminderType} Email an ${employee.name} (${employee.email})`);
+        
+        const result = await transporter.sendMail({
+          from: process.env.EMAIL_FROM,
+          to: employee.email,
+          subject: emailData.subject,
+          html: emailData.html
+        });
+        
+        console.log(`✅ Email erfolgreich gesendet an ${employee.email}: ${result.messageId}`);
+        
+        // Log reminder with type
+        await pool.execute(`
+          INSERT INTO zeitnachweis_reminders (employee_id, month, year)
+          VALUES (?, ?, ?)
+        `, [employee.id, lastMonth, lastMonthYear]);
+        
+      } catch (emailError) {
+        console.error(`❌ Fehler beim Senden der Email an ${employee.email}:`, emailError.message);
+        // Continue with other employees even if one fails
+      }
     }
     
     console.log(`📧 ${employees.length} ${reminderType} Erinnerungs-Emails versendet`);

@@ -557,7 +557,64 @@ async function sendTestEmail(reminderType) {
     }
 }
 
+/**
+ * Test SMTP connection
+ */
+async function testSmtpConnection() {
+    const button = document.getElementById('smtpTestBtn');
+    const resultDiv = document.getElementById('smtpResult');
+    const originalText = button.textContent;
+    
+    try {
+        // Show loading state
+        button.disabled = true;
+        button.textContent = '⏳ Teste Verbindung...';
+        resultDiv.innerHTML = '';
+        
+        const response = await fetch('/api/admin/test-smtp', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            resultDiv.innerHTML = `
+                <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 10px; margin-top: 10px;">
+                    <strong>✅ SMTP-Verbindung erfolgreich!</strong><br>
+                    <small>
+                        Host: ${result.smtp_host}<br>
+                        Port: ${result.smtp_port}<br>
+                        Benutzer: ${result.smtp_user}<br>
+                        Von: ${result.email_from}
+                    </small>
+                </div>
+            `;
+            showMessage('✅ SMTP-Verbindung erfolgreich!', 'success');
+        } else {
+            throw new Error(result.error || 'Unbekannter Fehler');
+        }
+        
+    } catch (error) {
+        console.error('SMTP-Test Fehler:', error);
+        resultDiv.innerHTML = `
+            <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; padding: 10px; margin-top: 10px;">
+                <strong>❌ SMTP-Verbindung fehlgeschlagen!</strong><br>
+                <small>${error.message}</small>
+            </div>
+        `;
+        showMessage('❌ SMTP-Verbindung fehlgeschlagen: ' + error.message, 'error');
+    } finally {
+        // Reset button
+        button.disabled = false;
+        button.textContent = originalText;
+    }
+}
+
 // Global functions to be called from HTML onclick
 window.sendReminders = sendReminders;
 window.loadEmailStats = loadEmailStats;
 window.sendTestEmail = sendTestEmail;
+window.testSmtpConnection = testSmtpConnection;
