@@ -247,26 +247,23 @@ app.post('/api/admin/test-smtp', async (req, res) => {
   try {
     console.log('🧪 Teste SMTP-Verbindung...');
     
-    // SMTP-Konfiguration wie WeaselParts
+    // SMTP-Konfiguration wie WeaselParts (exakt gleich!)
     const smtpConfig = {
       host: process.env.SMTP_HOST || 'smtp.dlr.de',
       port: parseInt(process.env.SMTP_PORT) || 587,
       secure: false,
       auth: {
-        user: process.env.SMTP_USER,
+        user: process.env.SMTP_USER || 'Clean1@dlr.de',
         pass: process.env.SMTP_PASS
-      },
-      tls: {
-        rejectUnauthorized: false
       }
     };
 
     if (!smtpConfig.auth.pass) {
       return res.status(500).json({ 
-        error: 'SMTP-Konfiguration unvollständig',
-        details: 'SMTP_PASS fehlt',
-        smtp_host: process.env.SMTP_HOST || 'nicht gesetzt',
-        smtp_port: process.env.SMTP_PORT || 'nicht gesetzt'
+        error: 'SMTP-Konfiguration fehlt - Email-Test übersprungen',
+        details: 'SMTP_PASS nicht konfiguriert',
+        smtp_host: process.env.SMTP_HOST || 'smtp.dlr.de',
+        smtp_port: process.env.SMTP_PORT || '587'
       });
     }
     
@@ -390,17 +387,14 @@ async function sendReminderEmails(reminderType = 'first') {
   try {
     console.log(`📧 Sende ${reminderType} Erinnerungs-Emails...`);
     
-    // SMTP-Konfiguration wie WeaselParts
+    // SMTP-Konfiguration wie WeaselParts (exakt gleich!)
     const smtpConfig = {
       host: process.env.SMTP_HOST || 'smtp.dlr.de',
       port: parseInt(process.env.SMTP_PORT) || 587,
       secure: false,
       auth: {
-        user: process.env.SMTP_USER,
+        user: process.env.SMTP_USER || 'Clean1@dlr.de',
         pass: process.env.SMTP_PASS
-      },
-      tls: {
-        rejectUnauthorized: false
       }
     };
 
