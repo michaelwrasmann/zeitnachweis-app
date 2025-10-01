@@ -304,7 +304,7 @@ app.post('/api/send-test-email', async (req, res) => {
     console.log(`📧 SMTP Config: ${smtpConfig.host}:${smtpConfig.port} (${smtpConfig.auth.user})`);
 
     // Nodemailer Transporter erstellen
-    const transporter = nodemailer.createTransporter(smtpConfig);
+    const transporter = nodemailer.createTransport(smtpConfig);
     
     // FROM-Email Logic wie WeaselParts
     const fromEmail = smtpConfig.auth.user.includes('f_weasel') ? 'weasel@dlr.de' : smtpConfig.auth.user;
@@ -387,7 +387,7 @@ app.post('/api/admin/test-smtp', async (req, res) => {
     }
     
     // Transporter lokal erstellen
-    const transporter = nodemailer.createTransporter(smtpConfig);
+    const transporter = nodemailer.createTransport(smtpConfig);
     
     // Test SMTP connection
     await transporter.verify();
@@ -493,7 +493,7 @@ async function sendReminderEmails(reminderType = 'first') {
       return;
     }
     
-    const transporter = nodemailer.createTransporter(smtpConfig);
+    const transporter = nodemailer.createTransport(smtpConfig);
     const now = new Date();
     // Prüfe den vorherigen Monat
     const lastMonth = now.getMonth() === 0 ? 12 : now.getMonth();
