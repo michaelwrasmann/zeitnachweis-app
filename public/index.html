@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zeitnachweis-System</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <h1>📊 Zeitnachweis-System</h1>
+            <div class="nav-links">
+                <a href="/" class="active">Dashboard</a>
+                <a href="/upload.html">Upload</a>
+                <a href="/admin.html">Admin</a>
+                <a href="/email-test.html">Email Test</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <div class="container">
+            <h2>Dashboard</h2>
+            
+            <div id="status" class="alert-container"></div>
+            
+            <div class="dashboard-section">
+                <h3>📊 Status-Übersicht</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalEmployees">-</div>
+                        <div>Gesamt Mitarbeiter</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="uploadedEmployees">-</div>
+                        <div>Uploads erhalten</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="pendingEmployees">-</div>
+                        <div>Noch ausstehend</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="dashboard-section">
+                <h3>📋 Mitarbeiter-Status</h3>
+                <table class="employee-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>E-Mail</th>
+                            <th>Status</th>
+                            <th>Upload-Datum</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeeTableBody">
+                        <!-- Wird dynamisch gefüllt -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', loadDashboard);
+        
+        async function loadDashboard() {
+            try {
+                // Lade Statistiken
+                const statsResponse = await fetch('/api/admin/email-stats');
+                const stats = await statsResponse.json();
+                
+                document.getElementById('totalEmployees').textContent = stats.total_employees || 0;
+                document.getElementById('uploadedEmployees').textContent = stats.uploaded_employees || 0;
+                document.getElementById('pendingEmployees').textContent = stats.pending_employees || 0;
+                
+                // Lade Mitarbeiter-Status
+                const employeesResponse = await fetch('/api/employees/status');
+                const employees = await employeesResponse.json();
+                
+                const tbody = document.getElementById('employeeTableBody');
+                tbody.innerHTML = '';
+                
+                employees.forEach(employee => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${employee.name}</td>
+                        <td>${employee.email}</td>
+                        <td>
+                            <span class="status ${employee.uploaded ? 'uploaded' : 'pending'}">
+                                ${employee.uploaded ? '✅ Hochgeladen' : '⏳ Ausstehend'}
+                            </span>
+                        </td>
+                        <td>${employee.upload_date ? new Date(employee.upload_date).toLocaleDateString('de-DE') : '-'}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+            } catch (error) {
+                console.error('Fehler beim Laden des Dashboards:', error);
+                document.getElementById('status').innerHTML = `
+                    <div class="alert alert-error">
+                        Fehler beim Laden der Daten: ${error.message}
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

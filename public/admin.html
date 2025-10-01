@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Zeitnachweis-System</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <h1>📊 Zeitnachweis-System</h1>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/upload.html">Upload</a>
+                <a href="/admin.html" class="active">Admin</a>
+                <a href="/email-test.html">Email Test</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <div class="container">
+            <h2>Administration</h2>
+            
+            <div id="adminStatus" class="alert-container"></div>
+            
+            <div class="admin-section">
+                <h3>Neuen Mitarbeiter hinzufügen</h3>
+                <form id="addEmployeeForm" class="add-form">
+                    <div class="form-row">
+                        <input type="text" id="employeeName" placeholder="Name" required>
+                        <input type="email" id="employeeEmail" placeholder="E-Mail" required>
+                        <button type="submit" class="btn btn-primary">➕ Hinzufügen</button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="admin-section">
+                <h3>Mitarbeiterliste</h3>
+                <table class="employee-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>E-Mail</th>
+                            <th>Status</th>
+                            <th>Hinzugefügt am</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeeTableBody">
+                        <!-- Wird dynamisch gefüllt -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="admin-section">
+                <h3>📧 Email-Statistiken</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalEmployeesAdmin">-</div>
+                        <div>Gesamt Mitarbeiter</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="uploadedEmployeesAdmin">-</div>
+                        <div>Uploads erhalten</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="pendingEmployeesAdmin">-</div>
+                        <div>Noch ausstehend</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="remindersSent">-</div>
+                        <div>Erinnerungen versendet</div>
+                    </div>
+                </div>
+                <button onclick="loadEmailStats()" class="btn">🔄 Aktualisieren</button>
+            </div>
+            
+            <div class="admin-section">
+                <h3>📧 Test-Erinnerungs-Emails</h3>
+                <p>Teste die verschiedenen Erinnerungs-Email-Templates für fehlende Zeitnachweise:</p>
+                
+                <div class="email-buttons">
+                    <button class="btn email-btn first" onclick="sendTestEmail('first')" id="firstBtn">
+                        📋 Erste Erinnerung<br>
+                        <small>5. des Monats - "Zeitnachweis fehlt"</small>
+                    </button>
+                    <button class="btn email-btn second" onclick="sendTestEmail('second')" id="secondBtn">
+                        ⚠️ Zweite Erinnerung<br>
+                        <small>10. des Monats - "Fehlt immer noch"</small>
+                    </button>
+                    <button class="btn email-btn final" onclick="sendTestEmail('final')" id="finalBtn">
+                        🚨 Finale Erinnerung<br>
+                        <small>15. des Monats - "DRINGEND!"</small>
+                    </button>
+                </div>
+                
+                <div class="info-box">
+                    <strong>Hinweis:</strong> 
+                    Die Test-Emails werden nur an Mitarbeiter gesendet, die noch keinen Zeitnachweis für den <strong>vorherigen Monat</strong> hochgeladen haben.
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadEmployees();
+            loadEmailStats();
+            
+            // Form Handler
+            document.getElementById('addEmployeeForm').addEventListener('submit', addEmployee);
+        });
+
+        async function addEmployee(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('employeeName').value;
+            const email = document.getElementById('employeeEmail').value;
+            
+            try {
+                const response = await fetch('/api/employees', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Mitarbeiter erfolgreich hinzugefügt', 'success');
+                    document.getElementById('addEmployeeForm').reset();
+                    loadEmployees();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert(`Fehler: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadEmployees() {
+            try {
+                const response = await fetch('/api/employees');
+                const employees = await response.json();
+                
+                const tbody = document.getElementById('employeeTableBody');
+                tbody.innerHTML = '';
+                
+                employees.forEach(employee => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${employee.name}</td>
+                        <td>${employee.email}</td>
+                        <td>
+                            <span class="status ${employee.active ? 'active' : 'inactive'}">
+                                ${employee.active ? '✅ Aktiv' : '❌ Inaktiv'}
+                            </span>
+                        </td>
+                        <td>${new Date(employee.created_at).toLocaleDateString('de-DE')}</td>
+                        <td>
+                            <button class="btn btn-danger btn-small" onclick="deleteEmployee(${employee.id})">
+                                🗑️ Löschen
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                showAlert(`Fehler beim Laden der Mitarbeiter: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteEmployee(id) {
+            if (!confirm('Mitarbeiter wirklich löschen?')) return;
+            
+            try {
+                const response = await fetch(`/api/employees/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Mitarbeiter erfolgreich gelöscht', 'success');
+                    loadEmployees();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert(`Fehler beim Löschen: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadEmailStats() {
+            try {
+                const response = await fetch('/api/admin/email-stats');
+                const stats = await response.json();
+                
+                document.getElementById('totalEmployeesAdmin').textContent = stats.total_employees || 0;
+                document.getElementById('uploadedEmployeesAdmin').textContent = stats.uploaded_employees || 0;
+                document.getElementById('pendingEmployeesAdmin').textContent = stats.pending_employees || 0;
+                document.getElementById('remindersSent').textContent = stats.reminders_sent || 0;
+            } catch (error) {
+                showAlert(`Fehler beim Laden der Statistiken: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendTestEmail(reminderType) {
+            const button = document.getElementById(`${reminderType}Btn`);
+            const originalText = button.innerHTML;
+            
+            button.disabled = true;
+            button.innerHTML = '📧 Sende...';
+            
+            try {
+                const response = await fetch('/api/admin/test-emails', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reminderType })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(`${reminderType} Test-Emails erfolgreich versendet`, 'success');
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert(`Fehler beim Senden: ${error.message}`, 'error');
+            }
+            
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('adminStatus');
+            alertContainer.innerHTML = `
+                <div class="alert alert-${type}">
+                    ${message}
+                </div>
+            `;
+            
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

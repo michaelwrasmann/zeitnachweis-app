@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.local
+*.log
+npm-debug.log*
+uploads/
+public/uploads/
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+*.pid
+*.seed
+*.pid.lock

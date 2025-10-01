@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # Zeitnachweis Application
+  app:
+    build: .
+    ports:
+      - "3001:3001"  # Port 3001 wie gewünscht
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=129.247.232.14
+      - DB_USER=advaiv
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=test
+      - DB_PORT=3306
+      - PORT=3001
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+    volumes:
+      - uploads:/app/public/uploads
+      - .:/app
+      - /app/node_modules
+    restart: unless-stopped
+    depends_on:
+      - db-healthcheck
+    networks:
+      - zeitnachweis-network
+      
+  # Health Check Service für externe DB
+  db-healthcheck:
+    image: mysql:8.0
+    command: >
+      sh -c "
+        echo 'Teste Verbindung zur externen MySQL-Datenbank...' &&
+        mysqladmin ping 
+          -h 129.247.232.14 
+          -P 3306 
+          -u advaiv 
+          -p'${DB_PASSWORD}' 
+          --connect-timeout=10 &&
+        echo 'Externe MySQL-Datenbank ist erreichbar!' &&
+        sleep infinity
+      "
+    networks:
+      - zeitnachweis-network
+    restart: "no"
+
+volumes:
+  uploads:
+
+networks:
+  zeitnachweis-network:
+    driver: bridge
+
+# Verwendung:
+# Normale Verwendung: docker-compose up
+# Nach Update: docker-compose down && docker-compose up -d --build
