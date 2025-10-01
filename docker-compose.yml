@@ -1,18 +1,11 @@
 version: '3.8'
 
 services:
-<<<<<<< HEAD
   # Zeitnachweis Application
   app:
     build: .
     ports:
       - "3001:3001"  # Port 3001 wie gewünscht
-=======
-  app:
-    build: .
-    ports:
-      - "3001:3001"
->>>>>>> 527e257a2be82dad1c0ea73398004c02a51c98f5
     environment:
       - NODE_ENV=production
       - DB_HOST=129.247.232.14
@@ -25,18 +18,14 @@ services:
       - SMTP_PORT=${SMTP_PORT}
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASS=${SMTP_PASS}
-<<<<<<< HEAD
-    volumes:
-      - uploads:/app/public/uploads
-      - .:/app
-      - /app/node_modules
-=======
       - EMAIL_FROM=${EMAIL_FROM}
       - ADMIN_EMAIL=${ADMIN_EMAIL}
     volumes:
+      - uploads:/app/public/uploads
       - ./uploads:/app/uploads
       - ./.env:/app/.env:ro
->>>>>>> 527e257a2be82dad1c0ea73398004c02a51c98f5
+      - .:/app
+      - /app/node_modules
     restart: unless-stopped
     depends_on:
       - db-healthcheck
@@ -47,7 +36,6 @@ services:
   db-healthcheck:
     image: mysql:8.0
     command: >
-<<<<<<< HEAD
       sh -c "
         echo 'Teste Verbindung zur externen MySQL-Datenbank...' &&
         mysqladmin ping 
@@ -59,17 +47,10 @@ services:
         echo 'Externe MySQL-Datenbank ist erreichbar!' &&
         sleep infinity
       "
-=======
-      sh -c "echo 'Teste Verbindung zur externen MySQL-Datenbank...' &&
-      mysqladmin ping -h 129.247.232.14 -P 3306 -u advaiv -p'${DB_PASSWORD}' --connect-timeout=10 &&
-      echo 'Externe MySQL-Datenbank ist erreichbar!' &&
-      sleep infinity"
->>>>>>> 527e257a2be82dad1c0ea73398004c02a51c98f5
     networks:
       - zeitnachweis-network
     restart: "no"
 
-<<<<<<< HEAD
 volumes:
   uploads:
 
@@ -80,8 +61,3 @@ networks:
 # Verwendung:
 # Normale Verwendung: docker-compose up
 # Nach Update: docker-compose down && docker-compose up -d --build
-=======
-networks:
-  zeitnachweis-network:
-    driver: bridge
->>>>>>> 527e257a2be82dad1c0ea73398004c02a51c98f5

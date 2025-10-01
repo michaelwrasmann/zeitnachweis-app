@@ -3,11 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<<<<<<< HEAD
     <title>Zeitnachweis-System</title>
-=======
-    <title>Zeitnachweis Dashboard</title>
->>>>>>> 527e257a2be82dad1c0ea73398004c02a51c98f5
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -18,17 +14,13 @@
                 <a href="/" class="active">Dashboard</a>
                 <a href="/upload.html">Upload</a>
                 <a href="/admin.html">Admin</a>
-<<<<<<< HEAD
                 <a href="/email-test.html">Email Test</a>
-=======
->>>>>>> 527e257a2be82dad1c0ea73398004c02a51c98f5
             </div>
         </div>
     </nav>
 
     <main>
         <div class="container">
-<<<<<<< HEAD
             <h2>Dashboard</h2>
             
             <div id="status" class="alert-container"></div>
@@ -48,6 +40,10 @@
                         <div class="stat-number" id="pendingEmployees">-</div>
                         <div>Noch ausstehend</div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="remindersSent">-</div>
+                        <div>Erinnerungen versendet</div>
+                    </div>
                 </div>
             </div>
             
@@ -66,50 +62,10 @@
                         <!-- Wird dynamisch gefüllt -->
                     </tbody>
                 </table>
-=======
-            <div class="header">
-                <h2>Mitarbeiter-Status für <span id="currentMonth"></span></h2>
-                <div class="legend">
-                    <span class="legend-item">
-                        <span class="status-indicator uploaded"></span> Hochgeladen
-                    </span>
-                    <span class="legend-item">
-                        <span class="status-indicator pending"></span> Ausstehend
-                    </span>
-                </div>
-            </div>
-
-            <div class="stats-container">
-                <div class="stat-card">
-                    <h3>Gesamt</h3>
-                    <div class="stat-number" id="totalEmployees">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Hochgeladen</h3>
-                    <div class="stat-number uploaded-text" id="uploadedCount">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Ausstehend</h3>
-                    <div class="stat-number pending-text" id="pendingCount">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Fortschritt</h3>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressBar"></div>
-                    </div>
-                    <div class="stat-percent" id="progressPercent">0%</div>
-                </div>
-            </div>
-
-            <div class="employee-grid" id="employeeGrid">
-                <!-- Wird dynamisch gefüllt -->
->>>>>>> 527e257a2be82dad1c0ea73398004c02a51c98f5
             </div>
         </div>
     </main>
 
-<<<<<<< HEAD
-    <script src="/js/app.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', loadDashboard);
         
@@ -122,6 +78,7 @@
                 document.getElementById('totalEmployees').textContent = stats.total_employees || 0;
                 document.getElementById('uploadedEmployees').textContent = stats.uploaded_employees || 0;
                 document.getElementById('pendingEmployees').textContent = stats.pending_employees || 0;
+                document.getElementById('remindersSent').textContent = stats.reminders_sent || 0;
                 
                 // Lade Mitarbeiter-Status
                 const employeesResponse = await fetch('/api/employees/status');
@@ -155,8 +112,5 @@
             }
         }
     </script>
-=======
-    <script src="/js/dashboard.js"></script>
->>>>>>> 527e257a2be82dad1c0ea73398004c02a51c98f5
 </body>
 </html>
