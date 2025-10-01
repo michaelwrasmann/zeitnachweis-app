@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zeitnachweis Upload</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <h1>📊 Zeitnachweis-System</h1>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/upload.html" class="active">Upload</a>
+                <a href="/admin.html">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <div class="container">
+            <h2>Zeitnachweis hochladen</h2>
+            
+            <div id="uploadStatus" class="alert-container"></div>
+            
+            <div class="upload-form">
+                <form id="uploadForm">
+                    <div class="form-group">
+                        <label for="employeeSelect">Mitarbeiter auswählen:</label>
+                        <select id="employeeSelect" required>
+                            <option value="">-- Bitte wählen --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="fileInput">Zeitnachweis-Datei (PDF, PNG, JPG):</label>
+                        <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" required>
+                        <div class="file-info">Max. Dateigröße: 10MB</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary">
+                            📤 Hochladen
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="info-box">
+                <h3>ℹ️ Wichtige Hinweise:</h3>
+                <ul>
+                    <li>Uploads sind nur in den ersten 5 Werktagen des Monats möglich</li>
+                    <li>Erlaubte Dateiformate: PDF, PNG, JPG, JPEG</li>
+                    <li>Maximale Dateigröße: 10MB</li>
+                    <li>Bei erneutem Upload wird die alte Datei überschrieben</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/upload.js"></script>
+</body>
+</html>

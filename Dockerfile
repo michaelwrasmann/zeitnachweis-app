@@ -12,6 +12,7 @@ COPY . .
 
 # Upload-Verzeichnis erstellen
 RUN mkdir -p public/uploads
+RUN mkdir -p uploads
 
 # Port freigeben
 EXPOSE 3001

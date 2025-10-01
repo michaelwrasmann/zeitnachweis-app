@@ -5,7 +5,7 @@ Ein rudimentäres Zeitnachweis-System mit automatischen Email-Erinnerungen, basi
 ## 🚀 Features
 
 - **Mitarbeiterverwaltung**: Hinzufügen und Verwalten von Mitarbeitern
-- **Zeitnachweis-Upload**: PDF-Upload für monatliche Zeitnachweise
+- **Zeitnachweis-Upload**: PDF-Upload für monatliche Zeitnachweise  
 - **Automatische Erinnerungen**: 3-stufiges Email-System (5., 10., 15. des Monats)
 - **Dashboard**: Übersicht über Upload-Status und Statistiken
 - **Email-Test**: Test der SMTP-Konfiguration

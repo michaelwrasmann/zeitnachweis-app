@@ -5,6 +5,8 @@ node_modules/
 npm-debug.log*
 uploads/
 public/uploads/
+uploads/*
+!uploads/.gitkeep
 .DS_Store
 *.swp
 *.swo
