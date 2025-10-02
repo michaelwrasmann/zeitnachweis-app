@@ -9,10 +9,14 @@ const fs = require('fs').promises;
 const multer = require('multer');
 const nodemailer = require('nodemailer');
 const cron = require('node-cron');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Session Storage (einfach im Speicher)
+const adminSessions = new Set();
 
 // Middleware
 app.use(express.json());
@@ -133,6 +137,27 @@ async function initializeDatabase() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
+
+    // Admin-Passwort-Tabelle (einfach, nur 1 Passwort)
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS zeitnachweis_admin_password (
+        id INT PRIMARY KEY DEFAULT 1,
+        password_hash VARCHAR(255) NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CHECK (id = 1)
+      )
+    `);
+
+    // Standard-Passwort setzen falls noch nicht vorhanden (Passwort: "admin123")
+    // WICHTIG: Benutzer sollte dies nach erstem Login ändern!
+    const [existingPassword] = await pool.execute('SELECT id FROM zeitnachweis_admin_password WHERE id = 1');
+    if (existingPassword.length === 0) {
+      const crypto = require('crypto');
+      const defaultPassword = 'admin123';
+      const hash = crypto.createHash('sha256').update(defaultPassword).digest('hex');
+      await pool.execute('INSERT INTO zeitnachweis_admin_password (id, password_hash) VALUES (1, ?)', [hash]);
+      console.log('⚠️ Standard-Admin-Passwort gesetzt: "admin123" - BITTE ÄNDERN!');
+    }
 
     console.log('✅ Datenbank erfolgreich initialisiert');
   } catch (error) {
@@ -543,6 +568,84 @@ app.delete('/api/admin/emails/:id', async (req, res) => {
   } catch (error) {
     console.error('❌ Fehler beim Löschen der Admin-Email:', error);
     res.status(500).json({ error: 'Fehler beim Löschen der Admin-Email' });
+  }
+});
+
+// Admin-Login
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ error: 'Passwort fehlt' });
+    }
+
+    const hash = crypto.createHash('sha256').update(password).digest('hex');
+    const [result] = await pool.execute('SELECT id FROM zeitnachweis_admin_password WHERE password_hash = ?', [hash]);
+
+    if (result.length === 0) {
+      return res.status(401).json({ error: 'Falsches Passwort' });
+    }
+
+    // Session-Token erstellen
+    const token = crypto.randomBytes(32).toString('hex');
+    adminSessions.add(token);
+
+    res.json({
+      message: 'Login erfolgreich',
+      token
+    });
+  } catch (error) {
+    console.error('❌ Fehler beim Login:', error);
+    res.status(500).json({ error: 'Fehler beim Login' });
+  }
+});
+
+// Admin-Session prüfen
+app.post('/api/admin/verify', async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token || !adminSessions.has(token)) {
+      return res.status(401).json({ valid: false });
+    }
+
+    res.json({ valid: true });
+  } catch (error) {
+    console.error('❌ Fehler bei Session-Prüfung:', error);
+    res.status(500).json({ error: 'Fehler bei Session-Prüfung' });
+  }
+});
+
+// Admin-Passwort ändern
+app.post('/api/admin/change-password', async (req, res) => {
+  try {
+    const { token, currentPassword, newPassword } = req.body;
+
+    if (!token || !adminSessions.has(token)) {
+      return res.status(401).json({ error: 'Nicht autorisiert' });
+    }
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Aktuelles und neues Passwort erforderlich' });
+    }
+
+    // Aktuelles Passwort prüfen
+    const currentHash = crypto.createHash('sha256').update(currentPassword).digest('hex');
+    const [result] = await pool.execute('SELECT id FROM zeitnachweis_admin_password WHERE password_hash = ?', [currentHash]);
+
+    if (result.length === 0) {
+      return res.status(401).json({ error: 'Aktuelles Passwort ist falsch' });
+    }
+
+    // Neues Passwort setzen
+    const newHash = crypto.createHash('sha256').update(newPassword).digest('hex');
+    await pool.execute('UPDATE zeitnachweis_admin_password SET password_hash = ? WHERE id = 1', [newHash]);
+
+    res.json({ message: 'Passwort erfolgreich geändert' });
+  } catch (error) {
+    console.error('❌ Fehler beim Passwort ändern:', error);
+    res.status(500).json({ error: 'Fehler beim Passwort ändern' });
   }
 });
 

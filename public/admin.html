@@ -5,8 +5,98 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Zeitnachweis-System</title>
     <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        /* Login Modal Styles */
+        .login-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        .login-overlay.active {
+            display: flex;
+        }
+        .login-modal {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+        .login-modal h2 {
+            margin: 0 0 20px 0;
+            color: #2c3e50;
+        }
+        .login-form input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .login-form input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .login-form button {
+            width: 100%;
+            padding: 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .login-form button:hover {
+            background: #2980b9;
+        }
+        .login-error {
+            color: #e74c3c;
+            margin-bottom: 15px;
+            display: none;
+        }
+        .admin-content {
+            display: none;
+        }
+        .admin-content.unlocked {
+            display: block;
+        }
+        .change-password-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+    </style>
 </head>
 <body>
+    <!-- Login Modal -->
+    <div class="login-overlay active" id="loginOverlay">
+        <div class="login-modal">
+            <h2>🔐 Admin-Login</h2>
+            <div class="login-error" id="loginError"></div>
+            <form class="login-form" id="loginForm">
+                <input type="password" id="loginPassword" placeholder="Admin-Passwort" required autofocus>
+                <button type="submit">Anmelden</button>
+            </form>
+            <p style="margin-top: 15px; font-size: 14px; color: #7f8c8d;">
+                <strong>Standard-Passwort:</strong> admin123<br>
+                <small>Bitte ändern Sie das Passwort nach dem ersten Login!</small>
+            </p>
+        </div>
+    </div>
+
     <nav>
         <div class="nav-container">
             <h1>📊 Zeitnachweis-System</h1>
@@ -19,10 +109,10 @@
         </div>
     </nav>
 
-    <main>
+    <main class="admin-content" id="adminContent">
         <div class="container">
             <h2>Administration</h2>
-            
+
             <div id="adminStatus" class="alert-container"></div>
             
             <div class="admin-section">
@@ -78,13 +168,27 @@
             </div>
             
             <div class="admin-section">
+                <h3>🔐 Passwort ändern</h3>
+                <div class="change-password-section">
+                    <form id="changePasswordForm" class="add-form">
+                        <div class="form-row" style="display: flex; flex-direction: column; gap: 10px;">
+                            <input type="password" id="currentPassword" placeholder="Aktuelles Passwort" required>
+                            <input type="password" id="newPassword" placeholder="Neues Passwort" required>
+                            <input type="password" id="confirmPassword" placeholder="Neues Passwort bestätigen" required>
+                            <button type="submit" class="btn btn-primary">🔒 Passwort ändern</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="admin-section">
                 <h3>🔧 SMTP-Konfiguration</h3>
                 <p>Teste die Email-Server-Verbindung:</p>
-                
+
                 <button class="btn" onclick="testSmtpConnection()" id="smtpTestBtn" style="background-color: #6c757d; color: white; margin-bottom: 15px;">
                     🔗 SMTP-Verbindung testen
                 </button>
-                
+
                 <div id="smtpResult" style="margin-top: 10px;"></div>
             </div>
             
@@ -138,15 +242,117 @@
     </main>
 
     <script>
+        let adminToken = localStorage.getItem('adminToken');
+
         document.addEventListener('DOMContentLoaded', () => {
+            // Check if already logged in
+            if (adminToken) {
+                verifySession();
+            }
+
+            // Form Handlers
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            document.getElementById('addEmployeeForm').addEventListener('submit', addEmployee);
+            document.getElementById('addAdminEmailForm').addEventListener('submit', addAdminEmail);
+            document.getElementById('changePasswordForm').addEventListener('submit', changePassword);
+        });
+
+        async function handleLogin(event) {
+            event.preventDefault();
+
+            const password = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('loginError');
+
+            try {
+                const response = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    adminToken = result.token;
+                    localStorage.setItem('adminToken', adminToken);
+                    unlockAdmin();
+                } else {
+                    errorDiv.textContent = result.error || 'Login fehlgeschlagen';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Verbindungsfehler';
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        async function verifySession() {
+            try {
+                const response = await fetch('/api/admin/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: adminToken })
+                });
+
+                const result = await response.json();
+
+                if (result.valid) {
+                    unlockAdmin();
+                } else {
+                    localStorage.removeItem('adminToken');
+                    adminToken = null;
+                }
+            } catch (error) {
+                console.error('Session-Prüfung fehlgeschlagen:', error);
+                localStorage.removeItem('adminToken');
+                adminToken = null;
+            }
+        }
+
+        function unlockAdmin() {
+            document.getElementById('loginOverlay').classList.remove('active');
+            document.getElementById('adminContent').classList.add('unlocked');
             loadEmployees();
             loadEmailStats();
             loadAdminEmails();
+        }
 
-            // Form Handlers
-            document.getElementById('addEmployeeForm').addEventListener('submit', addEmployee);
-            document.getElementById('addAdminEmailForm').addEventListener('submit', addAdminEmail);
-        });
+        async function changePassword(event) {
+            event.preventDefault();
+
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (newPassword !== confirmPassword) {
+                showAlert('Neue Passwörter stimmen nicht überein', 'error');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                showAlert('Neues Passwort muss mindestens 6 Zeichen lang sein', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/admin/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: adminToken, currentPassword, newPassword })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showAlert('Passwort erfolgreich geändert', 'success');
+                    document.getElementById('changePasswordForm').reset();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert(`Fehler: ${error.message}`, 'error');
+            }
+        }
 
         async function addEmployee(event) {
             event.preventDefault();
