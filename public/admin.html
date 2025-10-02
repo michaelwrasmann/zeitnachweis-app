@@ -65,6 +65,13 @@
             color: #e74c3c;
             margin-bottom: 15px;
             display: none;
+            padding: 10px;
+            background: #fee;
+            border-radius: 6px;
+            border: 1px solid #fcc;
+        }
+        .login-success {
+            margin-bottom: 15px;
         }
         .admin-content {
             display: none;
@@ -86,11 +93,17 @@
         <div class="login-modal">
             <h2>🔐 Admin-Login</h2>
             <div class="login-error" id="loginError"></div>
+            <div class="login-success" id="loginSuccess" style="display: none;"></div>
             <form class="login-form" id="loginForm">
                 <input type="password" id="loginPassword" placeholder="Admin-Passwort" required autofocus>
                 <button type="submit">Anmelden</button>
             </form>
-            <p style="margin-top: 15px; font-size: 14px; color: #7f8c8d;">
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="#" onclick="resetPassword(event)" style="color: #3498db; text-decoration: none; font-size: 14px; font-weight: 500;">
+                    🔑 Passwort vergessen?
+                </a>
+            </div>
+            <p style="margin-top: 15px; font-size: 14px; color: #7f8c8d; text-align: center;">
                 <strong>Standard-Passwort:</strong> admin123<br>
                 <small>Bitte ändern Sie das Passwort nach dem ersten Login!</small>
             </p>
@@ -352,6 +365,53 @@
                 }
             } catch (error) {
                 showAlert(`Fehler: ${error.message}`, 'error');
+            }
+        }
+
+        async function resetPassword(event) {
+            event.preventDefault();
+
+            if (!confirm('Möchten Sie wirklich ein neues temporäres Passwort anfordern?\n\nDas Passwort wird an alle konfigurierten Admin-Email-Adressen gesendet.')) {
+                return;
+            }
+
+            const errorDiv = document.getElementById('loginError');
+            const successDiv = document.getElementById('loginSuccess');
+            const loginForm = document.getElementById('loginForm');
+
+            // UI feedback
+            loginForm.querySelector('button').disabled = true;
+            loginForm.querySelector('button').textContent = '📧 Sende Email...';
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/admin/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    successDiv.innerHTML = `
+                        <div style="background: #d4edda; color: #155724; padding: 1rem; border-radius: 6px; border: 1px solid #c3e6cb; margin-bottom: 1rem;">
+                            <strong>✅ Email versendet!</strong><br>
+                            ${result.message}<br>
+                            <small>Bitte prüfen Sie Ihr Postfach.</small>
+                        </div>
+                    `;
+                    successDiv.style.display = 'block';
+                } else {
+                    errorDiv.textContent = result.error || 'Fehler beim Passwort-Reset';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Verbindungsfehler: ' + error.message;
+                errorDiv.style.display = 'block';
+            } finally {
+                loginForm.querySelector('button').disabled = false;
+                loginForm.querySelector('button').textContent = 'Anmelden';
             }
         }
 

@@ -715,6 +715,120 @@ app.post('/api/admin/change-password', async (req, res) => {
   }
 });
 
+// Admin-Passwort zurücksetzen (Passwort vergessen)
+app.post('/api/admin/reset-password', async (req, res) => {
+  try {
+    console.log('🔐 Passwort-Reset angefordert...');
+
+    // Hole alle Admin-Emails
+    const [adminEmails] = await pool.execute('SELECT email FROM zeitnachweis_admin_emails');
+
+    if (adminEmails.length === 0) {
+      return res.status(400).json({ error: 'Keine Admin-Email-Adressen konfiguriert' });
+    }
+
+    // Generiere temporäres Passwort (8 Zeichen, sicher)
+    const tempPassword = crypto.randomBytes(4).toString('hex'); // z.B. "a3f9d2e1"
+    const hash = crypto.createHash('sha256').update(tempPassword).digest('hex');
+
+    // Setze temporäres Passwort
+    await pool.execute('UPDATE zeitnachweis_admin_password SET password_hash = ? WHERE id = 1', [hash]);
+
+    console.log(`✅ Temporäres Passwort generiert: ${tempPassword}`);
+
+    // SMTP-Konfiguration
+    const smtpConfig = {
+      host: process.env.SMTP_HOST || 'smtp.dlr.de',
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER || 'f_weasel',
+        pass: process.env.SMTP_PASS
+      }
+    };
+
+    if (!smtpConfig.auth.pass) {
+      console.log('⚠️ SMTP-Konfiguration fehlt - Email kann nicht versendet werden');
+      return res.status(500).json({
+        error: 'SMTP nicht konfiguriert',
+        tempPassword: tempPassword // Nur für Entwicklung!
+      });
+    }
+
+    const transporter = nodemailer.createTransport(smtpConfig);
+    const fromEmail = smtpConfig.auth.user.includes('f_weasel') ? 'weasel@dlr.de' : smtpConfig.auth.user;
+
+    // Sende Email an alle Admins
+    let emailsSent = 0;
+    for (const admin of adminEmails) {
+      try {
+        await transporter.sendMail({
+          from: `"Zeitnachweis-System" <${fromEmail}>`,
+          to: admin.email,
+          subject: '🔐 Admin-Passwort zurücksetzen - Zeitnachweis-System',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h2 style="color: #2c3e50; border-bottom: 2px solid #667eea; padding-bottom: 10px;">
+                🔐 Passwort zurücksetzen
+              </h2>
+
+              <p style="font-size: 16px; line-height: 1.6; color: #34495e;">
+                Hallo Admin,<br><br>
+                Sie haben einen Passwort-Reset für das Zeitnachweis-System angefordert.
+              </p>
+
+              <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                <p style="color: white; margin: 0 0 10px 0; font-size: 14px;">Ihr temporäres Passwort:</p>
+                <p style="color: white; font-size: 32px; font-weight: bold; letter-spacing: 4px; margin: 0; font-family: 'Courier New', monospace;">
+                  ${tempPassword}
+                </p>
+              </div>
+
+              <div style="background: #fff3cd; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                <p style="margin: 0; color: #856404;">
+                  <strong>⚠️ Wichtig:</strong><br>
+                  • Bitte ändern Sie das Passwort nach dem Login<br>
+                  • Das temporäre Passwort ist sofort gültig<br>
+                  • Diese Email wurde an alle Admin-Adressen gesendet
+                </p>
+              </div>
+
+              <p style="font-size: 14px; color: #7f8c8d; margin-top: 30px;">
+                <em>Falls Sie diese Anfrage nicht gestellt haben, kontaktieren Sie bitte Ihren IT-Administrator.</em>
+              </p>
+
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+              <p style="font-size: 12px; color: #9ca3af; text-align: center;">
+                Zeitnachweis-System - DLR<br>
+                Diese Email wurde automatisch generiert.
+              </p>
+            </div>
+          `
+        });
+
+        emailsSent++;
+        console.log(`✅ Passwort-Reset Email gesendet an ${admin.email}`);
+      } catch (emailError) {
+        console.error(`❌ Fehler beim Senden an ${admin.email}:`, emailError.message);
+      }
+    }
+
+    if (emailsSent === 0) {
+      return res.status(500).json({ error: 'Konnte keine Emails versenden' });
+    }
+
+    res.json({
+      message: `Temporäres Passwort wurde an ${emailsSent} Admin-Adresse(n) gesendet`,
+      emailsSent
+    });
+
+  } catch (error) {
+    console.error('❌ Fehler beim Passwort-Reset:', error);
+    res.status(500).json({ error: 'Fehler beim Passwort-Reset' });
+  }
+});
+
 // ================== EMAIL FUNCTIONS ==================
 
 // Send upload notification email to admins
