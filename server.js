@@ -175,15 +175,15 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
-// Alle Mitarbeiter mit Upload-Status für vorherigen Monat
+// Alle Mitarbeiter mit Upload-Status für aktuellen Monat
 app.get('/api/employees/status', async (req, res) => {
   try {
     const now = new Date();
-    const lastMonth = now.getMonth() === 0 ? 12 : now.getMonth();
-    const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-    
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
     const [employees] = await pool.execute(`
-      SELECT 
+      SELECT
         e.id,
         e.name,
         e.email,
@@ -192,13 +192,13 @@ app.get('/api/employees/status', async (req, res) => {
         u.filename,
         CASE WHEN u.id IS NOT NULL THEN true ELSE false END as uploaded
       FROM zeitnachweis_employees e
-      LEFT JOIN zeitnachweis_uploads u ON 
-        e.id = u.employee_id AND 
-        u.month = ? AND 
+      LEFT JOIN zeitnachweis_uploads u ON
+        e.id = u.employee_id AND
+        u.month = ? AND
         u.year = ?
       WHERE e.active = true
       ORDER BY e.name
-    `, [lastMonth, lastMonthYear]);
+    `, [currentMonth, currentYear]);
     
     res.json(employees);
   } catch (error) {
@@ -488,32 +488,39 @@ app.post('/api/admin/test-emails', async (req, res) => {
 app.get('/api/admin/email-stats', async (req, res) => {
   try {
     const now = new Date();
+    // Aktueller Monat für Upload-Statistik
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    // Vorheriger Monat für Erinnerungen
     const lastMonth = now.getMonth() === 0 ? 12 : now.getMonth();
     const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-    
+
     const [totalEmployees] = await pool.execute(
       'SELECT COUNT(*) as count FROM zeitnachweis_employees WHERE active = true'
     );
-    
+
+    // Upload-Statistik für AKTUELLEN Monat
     const [uploadedEmployees] = await pool.execute(`
       SELECT COUNT(*) as count FROM zeitnachweis_employees e
       JOIN zeitnachweis_uploads u ON e.id = u.employee_id
       WHERE e.active = true AND u.month = ? AND u.year = ?
-    `, [lastMonth, lastMonthYear]);
-    
+    `, [currentMonth, currentYear]);
+
+    // Erinnerungen für VORHERIGEN Monat
     const [remindersSent] = await pool.execute(`
       SELECT COUNT(*) as count FROM zeitnachweis_reminders
       WHERE month = ? AND year = ?
     `, [lastMonth, lastMonthYear]);
-    
+
     res.json({
       total_employees: totalEmployees[0].count,
       uploaded_employees: uploadedEmployees[0].count,
       pending_employees: totalEmployees[0].count - uploadedEmployees[0].count,
       reminders_sent: remindersSent[0].count,
-      month: lastMonth,
-      year: lastMonthYear,
-      status_for: 'previous_month' // Indikator dass es um den vorherigen Monat geht
+      month: currentMonth,
+      year: currentYear,
+      status_for: 'current_month' // Aktueller Monat für Uploads
     });
   } catch (error) {
     console.error('❌ Fehler beim Laden der Statistiken:', error);
