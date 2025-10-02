@@ -168,7 +168,7 @@ async function initializeDatabase() {
         employee_id INT NOT NULL,
         month INT NOT NULL,
         year INT NOT NULL,
-        reminder_type ENUM('first', 'second', 'final') NOT NULL,
+        reminder_type VARCHAR(50) NOT NULL,
         reminder_sent TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (employee_id) REFERENCES zeitnachweis_employees(id) ON DELETE CASCADE
       )
@@ -524,17 +524,11 @@ app.post('/api/admin/test-smtp', async (req, res) => {
 // Send Reminder Emails (Manual Trigger)
 app.post('/api/admin/test-emails', async (req, res) => {
   try {
-    const { reminderType } = req.body;
-    
-    if (!['first', 'second', 'final'].includes(reminderType)) {
-      return res.status(400).json({ error: 'Ungültiger Erinnerungstyp' });
-    }
-    
-    console.log(`🧪 Test: Sende ${reminderType} Erinnerung manuell`);
-    await sendReminderEmails(reminderType);
-    
-    res.json({ 
-      message: `${reminderType} Erinnerungs-Emails erfolgreich versendet`,
+    console.log(`🧪 Test: Sende Erinnerung manuell`);
+    await sendReminderEmails('daily');
+
+    res.json({
+      message: `Erinnerungs-Emails erfolgreich versendet`,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -966,7 +960,7 @@ async function sendReminderEmails(reminderType = 'first') {
           from: `"Zeitnachweis-System" <${fromEmail}>`,
           to: employee.email,
           subject: emailData.subject,
-          html: emailData.html
+          text: emailData.text
         });
         
         // Log reminder in database
@@ -994,66 +988,21 @@ async function sendReminderEmails(reminderType = 'first') {
 function getEmailTemplate(type, employeeName, month, year, monthNames, workingDay) {
   const monthName = monthNames[month - 1];
   const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-  
-  switch (type) {
-    case 'first':
-      return {
-        subject: `📋 Fehlender Zeitnachweis für ${monthName} ${year}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #e67e22;">📋 Zeitnachweis fehlt noch!</h2>
-            <p>Hallo <strong>${employeeName}</strong>,</p>
-            <p>Uns fehlt noch Ihr Zeitnachweis für den <strong>${monthName} ${year}</strong>.</p>
-            <div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
-              <p>📅 <strong>Zeitnachweis für ${monthName} ${year} fehlt</strong></p>
-              <p>⏰ <strong>Bitte laden Sie diesen so schnell wie möglich hoch.</strong></p>
-            </div>
-            <p><a href="${baseUrl}/upload" style="background-color: #e67e22; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block;">🔗 Jetzt hochladen</a></p>
-            <p>Mit freundlichen Grüßen,<br>Ihr Zeitnachweis-Team</p>
-          </div>
-        `
-      };
-    
-    case 'second':
-      return {
-        subject: `⚠️ 2. Erinnerung: Zeitnachweis für ${monthName} ${year} fehlt immer noch`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #e67e22;">⚠️ Zweite Erinnerung - Zeitnachweis fehlt!</h2>
-            <p>Hallo <strong>${employeeName}</strong>,</p>
-            <p>Dies ist eine zweite Erinnerung - wir haben noch immer keinen Zeitnachweis für den <strong>${monthName} ${year}</strong> erhalten.</p>
-            <div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
-              <p>📅 <strong>Zeitnachweis für ${monthName} ${year} fehlt weiterhin</strong></p>
-              <p>⏳ <strong>Bitte laden Sie diesen umgehend hoch</strong></p>
-            </div>
-            <p><a href="${baseUrl}/upload" style="background-color: #e67e22; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block;">📤 Jetzt hochladen</a></p>
-            <p>Mit freundlichen Grüßen,<br>Ihr Zeitnachweis-Team</p>
-          </div>
-        `
-      };
-    
-    case 'final':
-      return {
-        subject: `🚨 DRINGEND: Zeitnachweis für ${monthName} ${year} fehlt!`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #e74c3c;">🚨 DRINGEND - Zeitnachweis fehlt!</h2>
-            <p>Hallo <strong>${employeeName}</strong>,</p>
-            <p><strong>DRINGEND:</strong> Ihr Zeitnachweis für den <strong>${monthName} ${year}</strong> fehlt weiterhin!</p>
-            <div style="background-color: #f8d7da; padding: 15px; border-left: 4px solid #dc3545; margin: 20px 0;">
-              <p>📋 <strong>Zeitnachweis für ${monthName} ${year} ist überfällig</strong></p>
-              <p>⚠️ <strong>Bitte laden Sie diesen SOFORT hoch!</strong></p>
-            </div>
-            <p><a href="${baseUrl}/upload" style="background-color: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">🚀 SOFORT HOCHLADEN</a></p>
-            <p style="color: #666; font-size: 14px;">Bei Problemen wenden Sie sich bitte umgehend an das Admin-Team.</p>
-            <p>Mit freundlichen Grüßen,<br>Ihr Zeitnachweis-Team</p>
-          </div>
-        `
-      };
-    
-    default:
-      return getEmailTemplate('first', employeeName, month, year, monthNames, workingDay);
-  }
+
+  return {
+    subject: `📋 Erinnerung: Zeitnachweis für ${monthName} ${year}`,
+    text: `
+Hallo ${employeeName},
+
+uns fehlt noch Ihr Zeitnachweis für den ${monthName} ${year}.
+
+Bitte laden Sie diesen so schnell wie möglich hoch:
+${baseUrl}/upload
+
+Mit freundlichen Grüßen,
+Ihr Zeitnachweis-Team
+    `
+  };
 }
 
 // Get current working day number in month
@@ -1079,22 +1028,16 @@ function getWorkingDayNumber(date) {
 // ================== CRON JOBS ==================
 
 // Schedule reminder emails für fehlende Zeitnachweise
-// 5. Tag des Monats um 9 AM - Erste Erinnerung 
-cron.schedule('0 9 5 * *', () => {
-  console.log('📧 Sende erste Erinnerungsmail für fehlende Zeitnachweise (5. des Monats)');
-  sendReminderEmails('first');
-});
+// Täglich um 9 AM ab dem 5. des Monats
+cron.schedule('0 9 * * *', () => {
+  const today = new Date();
+  const dayOfMonth = today.getDate();
 
-// 10. Tag des Monats um 9 AM - Zweite Erinnerung
-cron.schedule('0 9 10 * *', () => {
-  console.log('📧 Sende zweite Erinnerungsmail für fehlende Zeitnachweise (10. des Monats)');
-  sendReminderEmails('second');
-});
-
-// 15. Tag des Monats um 9 AM - Finale Erinnerung
-cron.schedule('0 9 15 * *', () => {
-  console.log('📧 Sende finale Erinnerungsmail für fehlende Zeitnachweise (15. des Monats)');
-  sendReminderEmails('final');
+  // Nur ab dem 5. Tag des Monats
+  if (dayOfMonth >= 5) {
+    console.log(`📧 Sende tägliche Erinnerungsmail für fehlende Zeitnachweise (${dayOfMonth}. des Monats)`);
+    sendReminderEmails('daily');
+  }
 });
 
 // ================== SERVER START ==================
