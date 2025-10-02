@@ -122,7 +122,18 @@ async function initializeDatabase() {
         FOREIGN KEY (employee_id) REFERENCES zeitnachweis_employees(id) ON DELETE CASCADE
       )
     `);
-    
+
+    // Admin-Email-Tabelle
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS zeitnachweis_admin_emails (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        label VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('✅ Datenbank erfolgreich initialisiert');
   } catch (error) {
     console.error('❌ Fehler beim Initialisieren der Datenbank:', error);
@@ -243,19 +254,31 @@ app.post('/api/upload', upload.single('zeitnachweis'), async (req, res) => {
     if (req.body.test === true) {
       return res.json({ message: 'Upload jederzeit möglich' });
     }
-    
+
     if (!req.file) {
       return res.status(400).json({ error: 'Keine Datei hochgeladen' });
     }
-    
+
     const { employeeId } = req.body;
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
-    
+
     if (!employeeId) {
       return res.status(400).json({ error: 'Mitarbeiter-ID fehlt' });
     }
-    
+
+    // Get employee information
+    const [employees] = await pool.execute(
+      'SELECT name, email FROM zeitnachweis_employees WHERE id = ?',
+      [employeeId]
+    );
+
+    if (employees.length === 0) {
+      return res.status(404).json({ error: 'Mitarbeiter nicht gefunden' });
+    }
+
+    const employee = employees[0];
+
     // Insert or update upload record
     await pool.execute(`
       INSERT INTO zeitnachweis_uploads (employee_id, month, year, filename, filepath)
@@ -265,10 +288,13 @@ app.post('/api/upload', upload.single('zeitnachweis'), async (req, res) => {
         filepath = VALUES(filepath),
         upload_date = CURRENT_TIMESTAMP
     `, [employeeId, currentMonth, currentYear, req.file.filename, req.file.path]);
-    
-    res.json({ 
+
+    // Send notification email to admins
+    await sendUploadNotificationEmail(employee, req.file, currentMonth, currentYear);
+
+    res.json({
       message: 'Zeitnachweis erfolgreich hochgeladen',
-      filename: req.file.filename 
+      filename: req.file.filename
     });
   } catch (error) {
     console.error('❌ Fehler beim Hochladen:', error);
@@ -470,7 +496,150 @@ app.get('/api/admin/email-stats', async (req, res) => {
   }
 });
 
+// Admin-Email-Adressen abrufen
+app.get('/api/admin/emails', async (req, res) => {
+  try {
+    const [emails] = await pool.execute('SELECT * FROM zeitnachweis_admin_emails ORDER BY id');
+    res.json(emails);
+  } catch (error) {
+    console.error('❌ Fehler beim Laden der Admin-Emails:', error);
+    res.status(500).json({ error: 'Fehler beim Laden der Admin-Emails' });
+  }
+});
+
+// Admin-Email hinzufügen/aktualisieren
+app.post('/api/admin/emails', async (req, res) => {
+  try {
+    const { email, label } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'E-Mail ist erforderlich' });
+    }
+
+    await pool.execute(`
+      INSERT INTO zeitnachweis_admin_emails (email, label)
+      VALUES (?, ?)
+      ON DUPLICATE KEY UPDATE label = VALUES(label), updated_at = CURRENT_TIMESTAMP
+    `, [email, label || '']);
+
+    res.json({ message: 'Admin-Email erfolgreich gespeichert', email, label });
+  } catch (error) {
+    console.error('❌ Fehler beim Speichern der Admin-Email:', error);
+    res.status(500).json({ error: 'Fehler beim Speichern der Admin-Email' });
+  }
+});
+
+// Admin-Email löschen
+app.delete('/api/admin/emails/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [result] = await pool.execute('DELETE FROM zeitnachweis_admin_emails WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Admin-Email nicht gefunden' });
+    }
+
+    res.json({ message: 'Admin-Email erfolgreich gelöscht' });
+  } catch (error) {
+    console.error('❌ Fehler beim Löschen der Admin-Email:', error);
+    res.status(500).json({ error: 'Fehler beim Löschen der Admin-Email' });
+  }
+});
+
 // ================== EMAIL FUNCTIONS ==================
+
+// Send upload notification email to admins
+async function sendUploadNotificationEmail(employee, file, month, year) {
+  try {
+    console.log(`📧 Sende Upload-Benachrichtigung an Admins für ${employee.name}...`);
+
+    // Get admin emails
+    const [adminEmails] = await pool.execute('SELECT email FROM zeitnachweis_admin_emails');
+
+    if (adminEmails.length === 0) {
+      console.log('⚠️ Keine Admin-Emails konfiguriert - Benachrichtigung übersprungen');
+      return;
+    }
+
+    // SMTP-Konfiguration exakt wie WeaselParts
+    const smtpConfig = {
+      host: process.env.SMTP_HOST || 'smtp.dlr.de',
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER || 'f_weasel',
+        pass: process.env.SMTP_PASS
+      }
+    };
+
+    if (!smtpConfig.auth.pass) {
+      console.log('⚠️ SMTP-Konfiguration fehlt - Upload-Benachrichtigung übersprungen');
+      return;
+    }
+
+    const transporter = nodemailer.createTransport(smtpConfig);
+
+    const monthNames = [
+      'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+      'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
+    ];
+
+    // From-Email wie WeaselParts behandeln
+    const fromEmail = smtpConfig.auth.user.includes('f_weasel') ? 'weasel@dlr.de' : smtpConfig.auth.user;
+
+    // Send email to each admin
+    for (const admin of adminEmails) {
+      try {
+        const result = await transporter.sendMail({
+          from: `"Zeitnachweis-System" <${fromEmail}>`,
+          to: admin.email,
+          subject: `📋 Neuer Zeitnachweis von ${employee.name} - ${monthNames[month - 1]} ${year}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
+                📋 Neuer Zeitnachweis eingegangen
+              </h2>
+
+              <p style="font-size: 16px; line-height: 1.6; color: #34495e;">
+                Hallo,<br><br>
+                es wurde ein neuer Zeitnachweis hochgeladen:
+              </p>
+
+              <div style="background: #f3f4f6; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Mitarbeiter:</strong> ${employee.name}</p>
+                <p style="margin: 5px 0;"><strong>E-Mail:</strong> ${employee.email}</p>
+                <p style="margin: 5px 0;"><strong>Zeitraum:</strong> ${monthNames[month - 1]} ${year}</p>
+                <p style="margin: 5px 0;"><strong>Datei:</strong> ${file.filename}</p>
+                <p style="margin: 5px 0;"><strong>Upload-Zeit:</strong> ${new Date().toLocaleString('de-DE')}</p>
+              </div>
+
+              <p style="font-size: 14px; color: #7f8c8d; margin-top: 30px;">
+                <em>Die hochgeladene Datei finden Sie im Anhang dieser E-Mail.</em>
+              </p>
+            </div>
+          `,
+          attachments: [
+            {
+              filename: file.filename,
+              path: file.path
+            }
+          ]
+        });
+
+        console.log(`✅ Upload-Benachrichtigung gesendet an ${admin.email} (MessageID: ${result.messageId})`);
+
+      } catch (emailError) {
+        console.error(`❌ Fehler beim Senden an ${admin.email}:`, emailError.message);
+      }
+    }
+
+    console.log(`✅ Upload-Benachrichtigungen an ${adminEmails.length} Admin(s) versendet`);
+
+  } catch (error) {
+    console.error('❌ Fehler beim Versenden der Upload-Benachrichtigungen:', error);
+    // Fehler nicht werfen, damit Upload trotzdem erfolgreich ist
+  }
+}
 
 // Send reminder emails with different templates (WeaselParts Style)
 async function sendReminderEmails(reminderType = 'first') {

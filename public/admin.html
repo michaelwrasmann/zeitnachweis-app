@@ -89,9 +89,31 @@
             </div>
             
             <div class="admin-section">
+                <h3>📧 Admin-Email-Adressen</h3>
+                <p>Konfiguriere die E-Mail-Adressen, die automatisch bei jedem Zeitnachweis-Upload benachrichtigt werden:</p>
+
+                <div id="adminEmailsContainer">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+
+                <form id="addAdminEmailForm" class="add-form" style="margin-top: 15px;">
+                    <div class="form-row">
+                        <input type="email" id="adminEmailInput" placeholder="admin@dlr.de" required>
+                        <input type="text" id="adminEmailLabel" placeholder="Bezeichnung (optional)">
+                        <button type="submit" class="btn btn-primary">➕ Hinzufügen</button>
+                    </div>
+                </form>
+
+                <div class="info-box" style="margin-top: 15px;">
+                    <strong>Hinweis:</strong>
+                    Die eingetragenen E-Mail-Adressen erhalten automatisch eine Benachrichtigung mit dem hochgeladenen Zeitnachweis als PDF-Anhang.
+                </div>
+            </div>
+
+            <div class="admin-section">
                 <h3>📧 Test-Erinnerungs-Emails</h3>
                 <p>Teste die verschiedenen Erinnerungs-Email-Templates für fehlende Zeitnachweise:</p>
-                
+
                 <div class="email-buttons">
                     <button class="btn email-btn first" onclick="sendTestEmail('first')" id="firstBtn">
                         📋 Erste Erinnerung<br>
@@ -106,9 +128,9 @@
                         <small>15. des Monats - "DRINGEND!"</small>
                     </button>
                 </div>
-                
+
                 <div class="info-box">
-                    <strong>Hinweis:</strong> 
+                    <strong>Hinweis:</strong>
                     Die Test-Emails werden nur an Mitarbeiter gesendet, die noch keinen Zeitnachweis für den <strong>vorherigen Monat</strong> hochgeladen haben.
                 </div>
             </div>
@@ -119,9 +141,11 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadEmployees();
             loadEmailStats();
-            
-            // Form Handler
+            loadAdminEmails();
+
+            // Form Handlers
             document.getElementById('addEmployeeForm').addEventListener('submit', addEmployee);
+            document.getElementById('addAdminEmailForm').addEventListener('submit', addAdminEmail);
         });
 
         async function addEmployee(event) {
@@ -288,6 +312,80 @@
             button.innerHTML = originalText;
         }
 
+        async function loadAdminEmails() {
+            try {
+                const response = await fetch('/api/admin/emails');
+                const emails = await response.json();
+
+                const container = document.getElementById('adminEmailsContainer');
+
+                if (emails.length === 0) {
+                    container.innerHTML = '<p style="color: #999; font-style: italic;">Noch keine Admin-Email-Adressen hinterlegt.</p>';
+                    return;
+                }
+
+                container.innerHTML = emails.map(email => `
+                    <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: #2c3e50;">${email.email}</strong>
+                            ${email.label ? `<span style="color: #6c757d; margin-left: 10px; font-size: 0.9em;">(${email.label})</span>` : ''}
+                        </div>
+                        <button class="btn btn-danger btn-small" onclick="deleteAdminEmail(${email.id})">🗑️</button>
+                    </div>
+                `).join('');
+            } catch (error) {
+                showAlert(`Fehler beim Laden der Admin-Emails: ${error.message}`, 'error');
+            }
+        }
+
+        async function addAdminEmail(event) {
+            event.preventDefault();
+
+            const email = document.getElementById('adminEmailInput').value;
+            const label = document.getElementById('adminEmailLabel').value;
+
+            try {
+                const response = await fetch('/api/admin/emails', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, label })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showAlert('Admin-Email erfolgreich hinzugefügt', 'success');
+                    document.getElementById('addAdminEmailForm').reset();
+                    loadAdminEmails();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert(`Fehler: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteAdminEmail(id) {
+            if (!confirm('Admin-Email wirklich löschen?')) return;
+
+            try {
+                const response = await fetch(`/api/admin/emails/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showAlert('Admin-Email erfolgreich gelöscht', 'success');
+                    loadAdminEmails();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                showAlert(`Fehler beim Löschen: ${error.message}`, 'error');
+            }
+        }
+
         function showAlert(message, type) {
             const alertContainer = document.getElementById('adminStatus');
             alertContainer.innerHTML = `
@@ -295,7 +393,7 @@
                     ${message}
                 </div>
             `;
-            
+
             setTimeout(() => {
                 alertContainer.innerHTML = '';
             }, 5000);
