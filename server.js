@@ -92,12 +92,51 @@ async function initializeDatabase() {
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS zeitnachweis_employees (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
+        name VARCHAR(255),
+        firstname VARCHAR(255),
+        lastname VARCHAR(255),
         email VARCHAR(255) NOT NULL UNIQUE,
         active BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Migration: firstname/lastname Spalten hinzufügen falls nicht vorhanden
+    try {
+      await pool.execute(`ALTER TABLE zeitnachweis_employees ADD COLUMN firstname VARCHAR(255)`);
+      console.log('✅ Spalte firstname hinzugefügt');
+    } catch (e) {
+      // Spalte existiert bereits
+    }
+
+    try {
+      await pool.execute(`ALTER TABLE zeitnachweis_employees ADD COLUMN lastname VARCHAR(255)`);
+      console.log('✅ Spalte lastname hinzugefügt');
+    } catch (e) {
+      // Spalte existiert bereits
+    }
+
+    // Migration: Bestehende name-Einträge aufteilen (falls vorhanden)
+    const [needsMigration] = await pool.execute(`
+      SELECT id, name FROM zeitnachweis_employees
+      WHERE name IS NOT NULL AND (firstname IS NULL OR lastname IS NULL)
+    `);
+
+    for (const employee of needsMigration) {
+      const nameParts = employee.name.trim().split(' ');
+      const firstname = nameParts[0] || '';
+      const lastname = nameParts.slice(1).join(' ') || nameParts[0]; // Falls nur ein Name, als Nachname verwenden
+
+      await pool.execute(`
+        UPDATE zeitnachweis_employees
+        SET firstname = ?, lastname = ?
+        WHERE id = ?
+      `, [firstname, lastname, employee.id]);
+    }
+
+    if (needsMigration.length > 0) {
+      console.log(`✅ ${needsMigration.length} Mitarbeiter-Namen migriert`);
+    }
     
     // Upload-Tabelle
     await pool.execute(`
@@ -185,7 +224,9 @@ app.get('/api/employees/status', async (req, res) => {
     const [employees] = await pool.execute(`
       SELECT
         e.id,
-        e.name,
+        e.firstname,
+        e.lastname,
+        CONCAT(e.firstname, ' ', e.lastname) as name,
         e.email,
         e.active,
         u.upload_date,
@@ -197,7 +238,7 @@ app.get('/api/employees/status', async (req, res) => {
         u.month = ? AND
         u.year = ?
       WHERE e.active = true
-      ORDER BY e.name
+      ORDER BY e.lastname, e.firstname
     `, [currentMonth, currentYear]);
     
     res.json(employees);
@@ -211,8 +252,16 @@ app.get('/api/employees/status', async (req, res) => {
 app.get('/api/employees', async (req, res) => {
   try {
     const [employees] = await pool.execute(`
-      SELECT * FROM zeitnachweis_employees 
-      ORDER BY name
+      SELECT
+        id,
+        firstname,
+        lastname,
+        CONCAT(firstname, ' ', lastname) as name,
+        email,
+        active,
+        created_at
+      FROM zeitnachweis_employees
+      ORDER BY lastname, firstname
     `);
     res.json(employees);
   } catch (error) {
@@ -224,22 +273,24 @@ app.get('/api/employees', async (req, res) => {
 // Neuen Mitarbeiter hinzufügen
 app.post('/api/employees', async (req, res) => {
   try {
-    const { name, email } = req.body;
-    
-    if (!name || !email) {
-      return res.status(400).json({ error: 'Name und E-Mail sind erforderlich' });
+    const { firstname, lastname, email } = req.body;
+
+    if (!firstname || !lastname || !email) {
+      return res.status(400).json({ error: 'Vorname, Nachname und E-Mail sind erforderlich' });
     }
-    
+
     const [result] = await pool.execute(
-      'INSERT INTO zeitnachweis_employees (name, email) VALUES (?, ?)',
-      [name, email]
+      'INSERT INTO zeitnachweis_employees (firstname, lastname, email) VALUES (?, ?, ?)',
+      [firstname, lastname, email]
     );
-    
-    res.json({ 
-      id: result.insertId, 
-      name, 
-      email, 
-      message: 'Mitarbeiter erfolgreich hinzugefügt' 
+
+    res.json({
+      id: result.insertId,
+      firstname,
+      lastname,
+      name: `${firstname} ${lastname}`,
+      email,
+      message: 'Mitarbeiter erfolgreich hinzugefügt'
     });
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY') {
@@ -294,7 +345,7 @@ app.post('/api/upload', upload.single('zeitnachweis'), async (req, res) => {
 
     // Get employee information
     const [employees] = await pool.execute(
-      'SELECT name, email FROM zeitnachweis_employees WHERE id = ?',
+      'SELECT firstname, lastname, CONCAT(firstname, " ", lastname) as name, email FROM zeitnachweis_employees WHERE id = ?',
       [employeeId]
     );
 
@@ -785,13 +836,14 @@ async function sendReminderEmails(reminderType = 'first') {
     
     // Get employees who haven't uploaded for LAST month
     const [employees] = await pool.execute(`
-      SELECT e.id, e.name, e.email
+      SELECT e.id, CONCAT(e.firstname, ' ', e.lastname) as name, e.email
       FROM zeitnachweis_employees e
-      LEFT JOIN zeitnachweis_uploads u ON 
-        e.id = u.employee_id AND 
-        u.month = ? AND 
+      LEFT JOIN zeitnachweis_uploads u ON
+        e.id = u.employee_id AND
+        u.month = ? AND
         u.year = ?
       WHERE e.active = true AND u.id IS NULL
+      ORDER BY e.lastname, e.firstname
     `, [lastMonth, lastMonthYear]);
     
     // Get current working day info

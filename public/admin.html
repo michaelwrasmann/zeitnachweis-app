@@ -119,7 +119,8 @@
                 <h3>Neuen Mitarbeiter hinzufügen</h3>
                 <form id="addEmployeeForm" class="add-form">
                     <div class="form-row">
-                        <input type="text" id="employeeName" placeholder="Name" required>
+                        <input type="text" id="employeeFirstname" placeholder="Vorname" required>
+                        <input type="text" id="employeeLastname" placeholder="Nachname" required>
                         <input type="email" id="employeeEmail" placeholder="E-Mail" required>
                         <button type="submit" class="btn btn-primary">➕ Hinzufügen</button>
                     </div>
@@ -356,19 +357,20 @@
 
         async function addEmployee(event) {
             event.preventDefault();
-            
-            const name = document.getElementById('employeeName').value;
+
+            const firstname = document.getElementById('employeeFirstname').value;
+            const lastname = document.getElementById('employeeLastname').value;
             const email = document.getElementById('employeeEmail').value;
-            
+
             try {
                 const response = await fetch('/api/employees', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email })
+                    body: JSON.stringify({ firstname, lastname, email })
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (response.ok) {
                     showAlert('Mitarbeiter erfolgreich hinzugefügt', 'success');
                     document.getElementById('addEmployeeForm').reset();
