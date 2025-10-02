@@ -820,7 +820,8 @@ app.post('/api/admin/reset-password', async (req, res) => {
 
     res.json({
       message: `Temporäres Passwort wurde an ${emailsSent} Admin-Adresse(n) gesendet`,
-      emailsSent
+      emailsSent,
+      tempPassword: tempPassword // Zeige Passwort auch im Browser (falls Email nicht ankommt)
     });
 
   } catch (error) {
