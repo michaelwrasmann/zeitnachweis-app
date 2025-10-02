@@ -847,32 +847,21 @@ async function sendUploadNotificationEmail(employee, file, month, year) {
     for (const admin of adminEmails) {
       try {
         const result = await transporter.sendMail({
-          from: `"Zeitnachweis-System" <${fromEmail}>`,
+          from: `"Arbeitszeitkarten-System" <${fromEmail}>`,
           to: admin.email,
-          subject: `📋 Neuer Zeitnachweis von ${employee.name} - ${monthNames[month - 1]} ${year}`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
-                📋 Neuer Zeitnachweis eingegangen
-              </h2>
+          subject: `📋 Neue Arbeitszeitkarte von ${employee.name} - ${monthNames[month - 1]} ${year}`,
+          text: `
+Hallo,
 
-              <p style="font-size: 16px; line-height: 1.6; color: #34495e;">
-                Hallo,<br><br>
-                es wurde ein neuer Zeitnachweis hochgeladen:
-              </p>
+es wurde eine neue Arbeitszeitkarte hochgeladen:
 
-              <div style="background: #f3f4f6; padding: 15px; border-radius: 6px; margin: 20px 0;">
-                <p style="margin: 5px 0;"><strong>Mitarbeiter:</strong> ${employee.name}</p>
-                <p style="margin: 5px 0;"><strong>E-Mail:</strong> ${employee.email}</p>
-                <p style="margin: 5px 0;"><strong>Zeitraum:</strong> ${monthNames[month - 1]} ${year}</p>
-                <p style="margin: 5px 0;"><strong>Datei:</strong> ${file.filename}</p>
-                <p style="margin: 5px 0;"><strong>Upload-Zeit:</strong> ${new Date().toLocaleString('de-DE')}</p>
-              </div>
+Mitarbeiter: ${employee.name}
+E-Mail: ${employee.email}
+Zeitraum: ${monthNames[month - 1]} ${year}
+Datei: ${file.filename}
+Upload-Zeit: ${new Date().toLocaleString('de-DE')}
 
-              <p style="font-size: 14px; color: #7f8c8d; margin-top: 30px;">
-                <em>Die hochgeladene Datei finden Sie im Anhang dieser E-Mail.</em>
-              </p>
-            </div>
+Die hochgeladene Datei finden Sie im Anhang dieser E-Mail.
           `,
           attachments: [
             {
@@ -957,7 +946,7 @@ async function sendReminderEmails(reminderType = 'first') {
         const fromEmail = smtpConfig.auth.user.includes('f_weasel') ? 'weasel@dlr.de' : smtpConfig.auth.user;
         
         const result = await transporter.sendMail({
-          from: `"Zeitnachweis-System" <${fromEmail}>`,
+          from: `"Arbeitszeitkarten-System" <${fromEmail}>`,
           to: employee.email,
           subject: emailData.subject,
           text: emailData.text
@@ -990,17 +979,17 @@ function getEmailTemplate(type, employeeName, month, year, monthNames, workingDa
   const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
 
   return {
-    subject: `📋 Erinnerung: Zeitnachweis für ${monthName} ${year}`,
+    subject: `📋 Erinnerung: Arbeitszeitkarte für ${monthName} ${year}`,
     text: `
 Hallo ${employeeName},
 
-uns fehlt noch Ihr Zeitnachweis für den ${monthName} ${year}.
+uns fehlt noch Ihre Arbeitszeitkarte für den ${monthName} ${year}.
 
-Bitte laden Sie diesen so schnell wie möglich hoch:
+Bitte laden Sie diese so schnell wie möglich hoch:
 ${baseUrl}/upload
 
 Mit freundlichen Grüßen,
-Ihr Zeitnachweis-Team
+Ihr Arbeitszeitkarten-Team
     `
   };
 }
