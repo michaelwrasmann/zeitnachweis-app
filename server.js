@@ -101,6 +101,14 @@ async function initializeDatabase() {
       )
     `);
 
+    // Migration: name-Spalte auf NULL setzen (falls NOT NULL)
+    try {
+      await pool.execute(`ALTER TABLE zeitnachweis_employees MODIFY COLUMN name VARCHAR(255) NULL`);
+      console.log('✅ Spalte name auf NULL gesetzt');
+    } catch (e) {
+      // Spalte ist bereits NULL oder existiert nicht
+    }
+
     // Migration: firstname/lastname Spalten hinzufügen falls nicht vorhanden
     try {
       await pool.execute(`ALTER TABLE zeitnachweis_employees ADD COLUMN firstname VARCHAR(255)`);
