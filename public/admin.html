@@ -227,27 +227,17 @@
             </div>
 
             <div class="admin-section">
-                <h3>📧 Test-Erinnerungs-Emails</h3>
-                <p>Teste die verschiedenen Erinnerungs-Email-Templates für fehlende Zeitnachweise:</p>
+                <h3>📧 Test-Erinnerungs-Email</h3>
+                <p>Teste die Erinnerungs-Email für fehlende Zeitnachweise:</p>
 
-                <div class="email-buttons">
-                    <button class="btn email-btn first" onclick="sendTestEmail('first')" id="firstBtn">
-                        📋 Erste Erinnerung<br>
-                        <small>5. des Monats - "Zeitnachweis fehlt"</small>
-                    </button>
-                    <button class="btn email-btn second" onclick="sendTestEmail('second')" id="secondBtn">
-                        ⚠️ Zweite Erinnerung<br>
-                        <small>10. des Monats - "Fehlt immer noch"</small>
-                    </button>
-                    <button class="btn email-btn final" onclick="sendTestEmail('final')" id="finalBtn">
-                        🚨 Finale Erinnerung<br>
-                        <small>15. des Monats - "DRINGEND!"</small>
-                    </button>
-                </div>
+                <button class="btn" onclick="sendTestEmail()" id="testEmailBtn" style="background-color: #48c6c4; color: white;">
+                    📧 Erinnerung jetzt testen
+                </button>
 
-                <div class="info-box">
+                <div class="info-box" style="margin-top: 15px;">
                     <strong>Hinweis:</strong>
-                    Die Test-Emails werden nur an Mitarbeiter gesendet, die noch keinen Zeitnachweis für den <strong>vorherigen Monat</strong> hochgeladen haben.
+                    Die Test-Email wird an alle Mitarbeiter gesendet, die noch keinen Zeitnachweis für den <strong>vorherigen Monat</strong> hochgeladen haben.
+                    Im Live-Betrieb werden diese Erinnerungen täglich ab dem 5. des Monats automatisch verschickt.
                 </div>
             </div>
         </div>
@@ -549,31 +539,30 @@
             button.textContent = '🔗 SMTP-Verbindung testen';
         }
 
-        async function sendTestEmail(reminderType) {
-            const button = document.getElementById(`${reminderType}Btn`);
+        async function sendTestEmail() {
+            const button = document.getElementById('testEmailBtn');
             const originalText = button.innerHTML;
-            
+
             button.disabled = true;
             button.innerHTML = '📧 Sende...';
-            
+
             try {
                 const response = await fetch('/api/admin/test-emails', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reminderType })
+                    headers: { 'Content-Type': 'application/json' }
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (response.ok) {
-                    showAlert(`${reminderType} Test-Emails erfolgreich versendet`, 'success');
+                    showAlert('Test-Email erfolgreich versendet', 'success');
                 } else {
                     showAlert(result.error, 'error');
                 }
             } catch (error) {
                 showAlert(`Fehler beim Senden: ${error.message}`, 'error');
             }
-            
+
             button.disabled = false;
             button.innerHTML = originalText;
         }
